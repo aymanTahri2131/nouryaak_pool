@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Café & Pool POS Design System
+   Clean, touch-friendly interface with blue accents
+   All colors in HSL format
+*/
+
+@layer base {
+  :root {
+    /* Core backgrounds */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    /* Cards and surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    /* Popover/Modal surfaces */
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - Blue accent */
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Soft gray */
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Muted elements */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Accent - Lighter blue */
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Destructive - Red for errors/delete */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders and inputs */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.75rem;
+
+    /* Status colors for POS */
+    --status-free: 142 71% 45%;
+    --status-free-foreground: 0 0% 100%;
+    --status-ordered: 221 83% 53%;
+    --status-ordered-foreground: 0 0% 100%;
+    --status-preparing: 45 93% 47%;
+    --status-preparing-foreground: 0 0% 0%;
+    --status-ready: 142 76% 36%;
+    --status-ready-foreground: 0 0% 100%;
+    --status-served: 262 83% 58%;
+    --status-served-foreground: 0 0% 100%;
+    --status-paid: 215 16% 47%;
+    --status-paid-foreground: 0 0% 100%;
+    --status-occupied: 0 84% 60%;
+    --status-occupied-foreground: 0 0% 100%;
+
+    /* Pool specific */
+    --pool-accent: 160 84% 39%;
+    --pool-accent-foreground: 0 0% 100%;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 217 33% 20%;
+    --sidebar-ring: 221 83% 53%;
+
+    /* Touch-friendly sizing */
+    --touch-target: 3rem;
+    --touch-target-lg: 4rem;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 20% 96%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 20% 96%;
+
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 20% 96%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 20% 96%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 20%;
+    --ring: 217 91% 60%;
+
+    /* Status colors dark mode */
+    --status-free: 142 71% 45%;
+    --status-free-foreground: 0 0% 100%;
+    --status-ordered: 217 91% 60%;
+    --status-ordered-foreground: 0 0% 100%;
+    --status-preparing: 45 93% 47%;
+    --status-preparing-foreground: 0 0% 0%;
+    --status-ready: 142 76% 36%;
+    --status-ready-foreground: 0 0% 100%;
+    --status-served: 262 83% 58%;
+    --status-served-foreground: 0 0% 100%;
+    --status-paid: 215 20% 65%;
+    --status-paid-foreground: 0 0% 100%;
+    --status-occupied: 0 63% 50%;
+    --status-occupied-foreground: 0 0% 100%;
+
+    --pool-accent: 160 84% 39%;
+    --pool-accent-foreground: 0 0% 100%;
+
+    --sidebar-background: 222 47% 4%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 12%;
+    --sidebar-accent-foreground: 210 20% 96%;
+    --sidebar-border: 217 33% 15%;
+    --sidebar-ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  /* Touch-friendly button base */
+  .touch-target {
+    @apply min-h-[var(--touch-target)] min-w-[var(--touch-target)];
+  }
+
+  .touch-target-lg {
+    @apply min-h-[var(--touch-target-lg)] min-w-[var(--touch-target-lg)];
+  }
+}
+
+@layer components {
+
+  /* POS Card styles */
+  .pos-card {
+    @apply rounded-xl border bg-card p-4 shadow-sm transition-all duration-200;
+  }
+
+  .pos-card-interactive {
+    @apply pos-card cursor-pointer hover:shadow-md hover:border-primary/30 active:scale-[0.98];
+  }
+
+  /* Status indicator animations */
+  .status-pulse {
+    @apply animate-pulse;
+  }
+
+  /* Grid layouts for POS */
+  .pos-grid {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+
+  .pos-grid-lg {
+    @apply grid gap-4;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  }
+
+  /* Product grid */
+  .product-grid {
+    @apply grid gap-3;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
