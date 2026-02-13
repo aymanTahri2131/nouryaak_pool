@@ -32,7 +32,7 @@ export const env = {
   SYNC_INTERVAL_MINUTES: parseInt(process.env.SYNC_INTERVAL_MINUTES || '5', 10),
   AUTO_SYNC_ENABLED: process.env.AUTO_SYNC_ENABLED === 'true',
 
-  // CORS
+  // Frontend
   CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
   // Helpers
