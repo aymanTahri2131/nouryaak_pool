@@ -18,7 +18,9 @@ export const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) 
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <Coffee className="h-12 w-12 animate-pulse text-primary" />
+          <div className="flex h-32 w-32 items-center justify-center bg-white rounded-lg">
+            <img src="/NooryakBg.png" alt="Nouryaak Pool" className="h-full w-full object-contain" />
+          </div>
           <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
