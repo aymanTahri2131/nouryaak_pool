@@ -11,7 +11,12 @@ let io: Server | null = null;
 export function initializeSocket(httpServer: HttpServer): Server {
   io = new Server(httpServer, {
     cors: {
-      origin: env.CORS_ORIGIN,
+      origin: [
+        'http://localhost:8080',
+        'http://localhost:5173',
+        env.CORS_ORIGIN,
+        'https://nouryaakpool.netlify.app'
+      ].filter(Boolean) as string[],
       methods: ['GET', 'POST'],
       credentials: true,
     },
