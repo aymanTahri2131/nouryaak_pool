@@ -3,6 +3,7 @@ import { useApp } from '@/contexts/AppContext';
 import { useReports } from '@/hooks/useReports';
 import { usePoolLeaderboard, useChallengeHistory, usePiecesHistory, useTournamentHistory } from '@/hooks/usePoolTables';
 import { useOrdersHistory } from '@/hooks/useOrders';
+import { useQueryClient } from '@tanstack/react-query';
 import { StatCard } from '@/components/pos/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,8 @@ import {
   Medal,
   Award,
   Search,
-  Calendar
+  Calendar,
+  RefreshCcw
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -755,6 +757,16 @@ const Reports = () => {
   const popularProducts = reportData?.popularProducts || [];
   const { currentUser } = useApp();
   const role = currentUser?.role;
+  const queryClient = useQueryClient();
+
+  const handleReload = () => {
+    queryClient.invalidateQueries({ queryKey: ['reports'] });
+    queryClient.invalidateQueries({ queryKey: ['orders', 'history'] });
+    queryClient.invalidateQueries({ queryKey: ['challengeHistory'] });
+    queryClient.invalidateQueries({ queryKey: ['piecesHistory'] });
+    queryClient.invalidateQueries({ queryKey: ['tournamentHistory'] });
+    queryClient.invalidateQueries({ queryKey: ['poolLeaderboard'] });
+  };
 
   const renderStats = () => {
     if (loadingReports || !stats) {
@@ -857,31 +869,43 @@ const Reports = () => {
           </p>
         </div>
 
-        <div className="flex p-1 bg-muted rounded-lg w-fit shadow-inner">
+        <div className="flex gap-2 items-center">
           <Button
-            variant={range === 'daily' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setRange('daily')}
-            className="rounded-md"
+            variant="outline"
+            size="icon"
+            onClick={handleReload}
+            title={t('Reload Data', 'Recharger les données', 'تحديث البيانات')}
+            className="h-9 w-9"
           >
-            {t('Daily', 'Quotidien', 'يومي')}
+            <RefreshCcw className="h-4 w-4" />
           </Button>
-          <Button
-            variant={range === 'weekly' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setRange('weekly')}
-            className="rounded-md"
-          >
-            {t('Weekly', 'Hebdo', 'أسبوعي')}
-          </Button>
-          <Button
-            variant={range === 'monthly' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setRange('monthly')}
-            className="rounded-md"
-          >
-            {t('Monthly', 'Mensuel', 'شهري')}
-          </Button>
+
+          <div className="flex p-1 bg-muted rounded-lg w-fit shadow-inner">
+            <Button
+              variant={range === 'daily' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setRange('daily')}
+              className="rounded-md"
+            >
+              {t('Daily', 'Quotidien', 'يومي')}
+            </Button>
+            <Button
+              variant={range === 'weekly' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setRange('weekly')}
+              className="rounded-md"
+            >
+              {t('Weekly', 'Hebdo', 'أسبوعي')}
+            </Button>
+            <Button
+              variant={range === 'monthly' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setRange('monthly')}
+              className="rounded-md"
+            >
+              {t('Monthly', 'Mensuel', 'شهري')}
+            </Button>
+          </div>
         </div>
       </div>
 
