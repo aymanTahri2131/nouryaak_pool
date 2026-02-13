@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Icon Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+
+        #icon-container {
+            width: 1024px;
+            height: 1024px;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        #logo {
+            max-width: 660px;
+            /* Safe zone width */
+            max-height: 660px;
+            /* Safe zone height */
+            object-fit: contain;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="icon-container">
+        <img id="logo" src="./NooryakBg.png" alt="Logo">
+    </div>
+</body>
+
+</html>

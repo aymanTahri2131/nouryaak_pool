@@ -135,10 +135,6 @@ const Login = () => {
               </form>
             </TabsContent>
           </Tabs>
-
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            {t('Demo: PIN 0000 or admin@nouryaak-pool.local / admin123', 'Démo: PIN 0000 ou admin@nouryaak-pool.local / admin123', 'تجربة: PIN 0000 أو admin@nouryaak-pool.local / admin123')}
-          </p>
         </CardContent>
       </Card>
     </div>

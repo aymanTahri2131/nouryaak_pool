@@ -4,13 +4,14 @@
     "slug": "nouryaak-pool-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/NooryakBg.png",
+    "orientation": "portrait",
+    "icon": "./assets/nouryaak_icon_sq.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#3B82F6"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
@@ -23,14 +24,19 @@
     "android": {
       "package": "com.nouryaak.pool",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/NooryakBg.png",
-        "backgroundColor": "#3B82F6"
+        "foregroundImage": "./assets/nouryaak_icon_sq.png",
+        "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "35b4b921-1e84-47ce-a5be-0060beebaa60"
+      }
     }
   }
 }
