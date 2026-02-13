@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Nouryaak Pool",
+    "slug": "nouryaak-pool-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/NooryakBg.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#3B82F6"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/NooryakBg.png",
+        "backgroundColor": "#3B82F6"
+      },
+      "edgeToEdgeEnabled": true,
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
