@@ -111,6 +111,7 @@ const ChallengeHistory = () => {
               <TableHead>{t('Players', 'Joueurs', 'اللاعبون')}</TableHead>
               <TableHead className="text-center">{t('Score', 'Score', 'النتيجة')}</TableHead>
               <TableHead>{t('Winner', 'Gagnant', 'الفائز')}</TableHead>
+              <TableHead className="text-center">{t('Status', 'Statut', 'الحالة')}</TableHead>
               <TableHead className="text-end">{t('Revenue', 'Revenu', 'الإيرادات')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -122,12 +123,13 @@ const ChallengeHistory = () => {
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : sessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                   <History className="h-10 w-10 mx-auto mb-2 opacity-20" />
                   {t('No history found', 'Aucun historique trouvé', 'لم يتم العثور على سجل')}
                 </TableCell>
@@ -157,6 +159,14 @@ const ChallengeHistory = () => {
                   </TableCell>
                   <TableCell className="font-bold text-primary">
                     {s.challenge?.winnerName || '-'}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                      s.isPaid ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    )}>
+                      {s.isPaid ? t('Paid', 'Payé', 'مدفوع') : t('Unpaid', 'Non payé', 'غير مدفوع')}
+                    </span>
                   </TableCell>
                   <TableCell className="text-end font-semibold text-primary">
                     {s.totalCost.toFixed(2)} DH
@@ -270,6 +280,7 @@ const TournamentHistory = () => {
               <TableHead>{t('Tournament / Players', 'Tournoi / Joueurs', 'البطولة / اللاعبون')}</TableHead>
               <TableHead className="text-center">{t('Score', 'Score', 'النتيجة')}</TableHead>
               <TableHead>{t('Winner', 'Gagnant', 'الفائز')}</TableHead>
+              <TableHead className="text-center">{t('Status', 'Statut', 'الحالة')}</TableHead>
               <TableHead className="text-end">{t('Revenue', 'Revenu', 'الإيرادات')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -281,12 +292,13 @@ const TournamentHistory = () => {
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : sessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                   <History className="h-10 w-10 mx-auto mb-2 opacity-20" />
                   {t('No history found', 'Aucun historique trouvé', 'لم يتم العثور على سجل')}
                 </TableCell>
@@ -321,6 +333,14 @@ const TournamentHistory = () => {
                   </TableCell>
                   <TableCell className="font-bold text-primary">
                     {s.challenge?.winnerName || '-'}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                      s.isPaid ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    )}>
+                      {s.isPaid ? t('Paid', 'Payé', 'مدفوع') : t('Unpaid', 'Non payé', 'غير مدفوع')}
+                    </span>
                   </TableCell>
                   <TableCell className="text-end font-semibold text-primary">
                     {s.totalCost.toFixed(2)} DH
@@ -433,6 +453,7 @@ const PiecesHistory = () => {
               <TableHead className="w-[180px]">{t('Date', 'Date', 'التاريخ')}</TableHead>
               <TableHead>{t('Player', 'Joueur', 'اللاعب')}</TableHead>
               <TableHead className="text-center">{t('Pieces', 'Pièces', 'قطع')}</TableHead>
+              <TableHead className="text-center">{t('Status', 'Statut', 'الحالة')}</TableHead>
               <TableHead className="text-end">{t('Revenue', 'Revenu', 'الإيرادات')}</TableHead>
             </TableRow>
           </TableHeader>
@@ -443,12 +464,13 @@ const PiecesHistory = () => {
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : sessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                   <History className="h-10 w-10 mx-auto mb-2 opacity-20" />
                   {t('No history found', 'Aucun historique trouvé', 'لم يتم العثور على سجل')}
                 </TableCell>
@@ -468,6 +490,14 @@ const PiecesHistory = () => {
                   </TableCell>
                   <TableCell className="text-center font-mono">
                     {s.pieces?.reduce((sum: number, p: any) => sum + p.count, 0) || 0}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                      s.isPaid ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    )}>
+                      {s.isPaid ? t('Paid', 'Payé', 'مدفوع') : t('Unpaid', 'Non payé', 'غير مدفوع')}
+                    </span>
                   </TableCell>
                   <TableCell className="text-end font-semibold text-primary">
                     {s.totalCost.toFixed(2)} DH
