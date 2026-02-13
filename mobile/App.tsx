@@ -18,7 +18,8 @@ import { useEffect } from 'react';
 // ============================================
 // For Android Emulator: use 'http://10.0.2.2:8080'
 // For Physical Device: use your machine's local IP 'http://192.168.8.136:8080'
-const WEB_APP_URL = 'http://10.0.2.2:8080';
+// Production URL
+const WEB_APP_URL = 'https://nouryaakpool.netlify.app';
 
 export default function App() {
   const webViewRef = useRef<WebView>(null);
