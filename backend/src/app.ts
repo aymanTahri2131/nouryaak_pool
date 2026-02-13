@@ -35,28 +35,33 @@ app.use(helmet({
 const allowedOrigins = [
   'http://localhost:8080',
   'http://localhost:5173',
-  env.CORS_ORIGIN
+  env.CORS_ORIGIN,
+  'https://nouryaakpool.netlify.app' // Hardcode for safety
 ].filter(Boolean);
+
+console.log('🌐 Allowed CORS Origins:', allowedOrigins);
 
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // In development, allow any origin (e.g. 192.168.x.x, 10.0.2.2)
+    // In development, allow any origin
     if (env.isDevelopment) {
       return callback(null, true);
     }
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // Check if origin is allowed
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.warn(`⚠️ CORS blocked for origin: ${origin}`);
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
 }));
 
 // Request parsing
