@@ -269,7 +269,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                         <div className="flex flex-col gap-2 p-1 w-full scale-90">
                             <span className="text-[8px] font-black uppercase text-center text-muted-foreground">{t('Select Mode', 'Choisir Mode', 'اختر النمط')}</span>
                             <div className="grid grid-cols-2 gap-1 px-1">
-                                {[3, 5, 7, 9].map(mode => (
+                                {[3, 5, 6, 7, 9].map(mode => (
                                     <Button
                                         key={mode}
                                         size="sm"

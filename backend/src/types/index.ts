@@ -124,7 +124,7 @@ export interface IPoolPiece {
 
 // Pool Challenge
 export interface IPoolChallenge {
-  mode: 3 | 5 | 7;
+  mode: 3 | 5 | 6 | 7 | 9;
   player1Name: string;
   player2Name: string;
   player1Score: number;

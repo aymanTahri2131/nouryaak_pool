@@ -30,7 +30,7 @@ const poolChallengeSchema = new Schema<IPoolChallenge>(
   {
     mode: {
       type: Number,
-      enum: [3, 5, 7],
+      enum: [3, 5, 6, 7, 9],
       required: true,
     },
     player1Name: {

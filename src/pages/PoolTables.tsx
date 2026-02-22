@@ -42,7 +42,7 @@ const PoolTables = () => {
 
   const [piecesCount, setPiecesCount] = useState(1);
   const [playerName, setPlayerName] = useState('');
-  const [challengeMode, setChallengeMode] = useState<3 | 5 | 7>(3);
+  const [challengeMode, setChallengeMode] = useState<3 | 5 | 6 | 7 | 9>(3);
   const [player1Name, setPlayer1Name] = useState('');
   const [player2Name, setPlayer2Name] = useState('');
 
@@ -250,10 +250,10 @@ const PoolTables = () => {
                             <Label>{t('Challenge Mode', 'Mode défi', 'وضع التحدي')}</Label>
                             <RadioGroup
                               value={challengeMode.toString()}
-                              onValueChange={(v) => setChallengeMode(parseInt(v) as 3 | 5 | 7)}
+                              onValueChange={(v) => setChallengeMode(parseInt(v) as 3 | 5 | 6 | 7 | 9)}
                               className="flex gap-4"
                             >
-                              {[3, 5, 7].map((mode) => (
+                              {[3, 5, 6, 7, 9].map((mode) => (
                                 <div key={mode} className="flex items-center space-x-2">
                                   <RadioGroupItem value={mode.toString()} id={`mode-${mode}`} />
                                   <Label htmlFor={`mode-${mode}`} className="cursor-pointer">
