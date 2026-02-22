@@ -92,7 +92,7 @@ export function useStartChallengeSession() {
       pricePerGame,
     }: {
       tableId: string;
-      mode: 3 | 5 | 7;
+      mode: 3 | 5 | 6 | 7 | 9;
       player1Name: string;
       player2Name: string;
       pricePerGame?: number;
