@@ -75,6 +75,28 @@ export const startMatch = asyncHandler(async (req: Request, res: Response) => {
     });
 });
 
+// PUT /api/pool-tables/tournaments/:id/matches/:matchId/players
+export const updateMatchPlayers = asyncHandler(async (req: Request, res: Response) => {
+    const { player1Name, player2Name } = req.body;
+
+    // We expect at least one player name to be provided for update
+    if (player1Name === undefined && player2Name === undefined) {
+        throw new ApiError(400, 'At least one player name must be provided');
+    }
+
+    const tournament = await tournamentService.updateMatchPlayers(
+        req.params.id as string,
+        req.params.matchId as string,
+        { player1Name, player2Name }
+    );
+
+    res.json({
+        success: true,
+        data: { tournament },
+        message: 'Match players updated successfully',
+    });
+});
+
 export default {
     getAllTournaments,
     getTournamentById,
@@ -82,4 +104,5 @@ export default {
     updateTournament,
     finalizeTournament,
     startMatch,
+    updateMatchPlayers,
 };

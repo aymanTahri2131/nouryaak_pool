@@ -68,6 +68,14 @@ const navigation = [
     roles: ['admin', 'pool_manager']
   },
   {
+    path: '/pool-players',
+    icon: Users,
+    labelEn: 'Pool Players',
+    labelFr: 'Joueurs (Billard)',
+    labelAr: 'لاعبي البلياردو',
+    roles: ['admin', 'pool_manager']
+  },
+  {
     path: '/tables',
     icon: Coffee,
     labelEn: 'Café Tables',
@@ -110,11 +118,12 @@ const getNavItems = (role: string) => {
     return navigation.filter(item => item.path === '/bartender');
   }
   if (role === 'pool_manager') {
-    // Reports, Pool Tables, Pool Management
+    // Reports, Pool Tables, Pool Management, Pool Players
     return [
       navigation.find(n => n.path === '/reports'),
       navigation.find(n => n.path === '/pool'),
       navigation.find(n => n.path === '/pool-management'),
+      navigation.find(n => n.path === '/pool-players'),
     ].filter(Boolean) as typeof navigation;
   }
   return [];

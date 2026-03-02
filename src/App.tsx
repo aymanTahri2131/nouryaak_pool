@@ -17,6 +17,7 @@ import Reports from "./pages/Reports";
 import TableDetail from "./pages/TableDetail";
 import UsersManagement from "./pages/UsersManagement";
 import PoolManagement from "./pages/PoolManagement";
+import PoolPlayersManagement from "./pages/PoolPlayersManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
               <Route element={<ProtectedRoute allowedRoles={['admin', 'pool_manager']}><Outlet /></ProtectedRoute>}>
                 <Route path="pool" element={<PoolTables />} />
                 <Route path="pool-management" element={<PoolManagement />} />
+                <Route path="pool-players" element={<PoolPlayersManagement />} />
                 <Route path="leaderboard" element={<PoolLeaderboard />} />
               </Route>
 

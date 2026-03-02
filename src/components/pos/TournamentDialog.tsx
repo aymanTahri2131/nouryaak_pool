@@ -21,12 +21,13 @@ import {
     useStartTournamentMatch,
     useUpdateTournament,
     useFinalizeTournament,
+    useUpdateTournamentMatchPlayers,
 } from '@/hooks/useTournaments';
 import { usePoolTables } from '@/hooks/usePoolTables';
 import {
     Trophy, Plus, Users, Layout,
     Play, CheckCircle2, X, Maximize2,
-    Minimize2, Download, FileImage, Printer
+    Minimize2, Download, FileImage, Printer, Pen, Radio
 } from 'lucide-react';
 import { PlayerSelect } from './PlayerSelect';
 import { toast } from 'sonner';
@@ -41,6 +42,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { useEffect } from 'react';
+import { LiveMatchesScore } from './LiveMatchesScore';
 
 export const TournamentDialog = ({ children }: { children?: React.ReactNode }) => {
     const { t } = useApp();
@@ -55,15 +58,34 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
     const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
     const [newPlayer, setNewPlayer] = useState('');
     const [startingMatchId, setStartingMatchId] = useState<string | null>(null);
+    const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+    const [editPlayer1, setEditPlayer1] = useState('');
+    const [editPlayer2, setEditPlayer2] = useState('');
+    const [editingMatchLabel, setEditingMatchLabel] = useState<string>('');
+    const [showLiveScore, setShowLiveScore] = useState(false);
 
     const { data: tournaments = [], isLoading: isLoadingList } = useTournaments();
     const { data: poolTables = [] } = usePoolTables();
     const { data: activeTournament, isLoading: isLoadingActive } = useTournament(selectedTournamentId || '');
 
+    useEffect(() => {
+        if (activeTournament) {
+            const completedMatches = activeTournament.matches.filter(m => m.status === 'completed');
+            completedMatches.forEach(match => {
+                localStorage.removeItem(`match_score_${match.id}`);
+            });
+            // If there are no live matches, turn off live score view
+            if (!activeTournament.matches.some(m => m.status === 'in_progress')) {
+                setShowLiveScore(false);
+            }
+        }
+    }, [activeTournament]);
+
     const createMutation = useCreateTournament();
     const updateMutation = useUpdateTournament();
     const finalizeMutation = useFinalizeTournament();
     const startMatchMutation = useStartTournamentMatch();
+    const updatePlayersMutation = useUpdateTournamentMatchPlayers();
 
     // ... (keep handlers as is, they are inside the component)
 
@@ -166,6 +188,25 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
         }
     };
 
+    const handleUpdatePlayers = async (matchId: string) => {
+        if (!selectedTournamentId) return;
+
+        try {
+            await updatePlayersMutation.mutateAsync({
+                tournamentId: selectedTournamentId,
+                matchId,
+                data: {
+                    player1Name: editPlayer1 || undefined,
+                    player2Name: editPlayer2 || undefined,
+                }
+            });
+            setEditingMatchId(null);
+            toast.success(t('Match updated!', 'Match mis à jour!', 'تم تحديث المباراة!'));
+        } catch (err: any) {
+            toast.error(err.message || t('Failed to update players', 'Échec de la mise à jour', 'فشل تحديث اللاعبين'));
+        }
+    };
+
     const bracketRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
 
@@ -236,6 +277,24 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                     </span>
                 </div>
             )}
+
+            {match.status === 'pending' && !startingMatchId && editingMatchId !== match.id && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-20 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setEditPlayer1(match.player1Name || '');
+                        setEditPlayer2(match.player2Name || '');
+                        setEditingMatchLabel(match.label || '');
+                        setEditingMatchId(match.id);
+                    }}
+                >
+                    <Pen className="h-3 w-3" />
+                </Button>
+            )}
+
             <div className="space-y-1.5 pt-2">
                 <div className={cn(
                     "flex items-center justify-between px-2 py-1.5 rounded-md",
@@ -263,7 +322,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                 </div>
             </div>
 
-            {match.status === 'pending' && match.player1Name && match.player2Name && (
+            {match.status === 'pending' && match.player1Name && match.player2Name && editingMatchId !== match.id && (
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-background/95 rounded-lg z-10">
                     {startingMatchId === match.id ? (
                         <div className="flex flex-col gap-2 p-1 w-full scale-90">
@@ -370,7 +429,18 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                         </span>
                     </DialogTitle>
                     <div className="flex items-center px-0 sm:px-0 md:px-8 justify-between w-full justify-end">
-                        {step === 'active' && activeTournament?.status === 'completed' && (
+                        {step === 'active' && activeTournament?.matches.some(m => m.status === 'in_progress') && (
+                            <Button
+                                variant={showLiveScore ? "default" : "outline"}
+                                size="sm"
+                                className="h-8 gap-2 mr-2"
+                                onClick={() => setShowLiveScore(!showLiveScore)}
+                            >
+                                <Radio className="h-4 w-4" />
+                                <span className="hidden sm:inline">{t('Live', 'En Direct', 'مباشر')}</span>
+                            </Button>
+                        )}
+                        {step === 'active' && (!showLiveScore && activeTournament?.status === 'completed') && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 gap-2 bg-white/50 border-green-200 text-green-700 hover:bg-green-50" disabled={isExporting}>
@@ -610,139 +680,218 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
 
                     {step === 'active' && activeTournament && (
                         <div className="flex-1 flex flex-col overflow-hidden">
-                            <div className="px-6 sm:px-6 md:px-12 py-2 bg-muted/50 border-y flex items-center justify-between">
-                                <div className="flex flex-col">
-                                    <span className="text-[12px] uppercase text-muted-foreground font-bold">{activeTournament.players.length} {t('Players', 'Joueurs', 'لاعبين')}</span>
-                                </div>
-                                {activeTournament.winnerName && (
-                                    <div className="flex items-center gap-2 bg-status-ready/10 px-3 py-1 rounded-full border border-status-ready/30">
-                                        <Trophy className="h-4 w-4 text-status-ready" />
-                                        <span className="text-xs font-bold text-status-ready">{activeTournament.winnerName}</span>
-                                    </div>
-                                )}
-                                <div className="flex flex-col">
-                                    <Badge variant="outline" className="text-xs px-2 py-0 bg-background border-primary/20">{activeTournament.status.toUpperCase()}</Badge>
-                                </div>
-                            </div>
-
-                            <div ref={bracketRef} className="flex-1 overflow-x-auto overflow-y-auto bg-muted/5 min-h-0 relative m-0 mobile-iso-scroll">
-                                {/* Background Watermark - Centered on content */}
-                                <div
-                                    className="absolute inset-0 pointer-events-none opacity-[0.1]"
-                                    style={{
-                                        backgroundImage: "url('/NooryakBg.png')",
-                                        backgroundPosition: 'center',
-                                        backgroundRepeat: 'no-repeat',
-                                        backgroundSize: '1200px',
-                                        // Ensure it moves with content
-                                        width: '100%',
-                                        height: '100%',
-                                        minWidth: '1200px',
-                                    }}
+                            {showLiveScore ? (
+                                <LiveMatchesScore
+                                    matches={activeTournament.matches.filter(m => m.status === 'in_progress')}
+                                    tables={poolTables}
+                                    tournamentMatches={activeTournament.matches}
                                 />
-                                <div className="p-4 min-w-[1200px] h-full relative z-10">
-                                    {(() => {
-                                        const matches = activeTournament.matches;
-                                        const rounds = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b);
-                                        const leftMatches = matches.filter(m => m.side === 'left');
-                                        const rightMatches = matches.filter(m => m.side === 'right');
-                                        const centerMatch = matches.find(m => m.side === 'center');
-                                        const leftRounds = [...rounds.slice(0, -1)];
-                                        const rightRounds = [...leftRounds];
+                            ) : (
+                                <>
+                                    <div className="px-6 sm:px-6 md:px-12 py-2 bg-muted/50 border-y flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <span className="text-[12px] uppercase text-muted-foreground font-bold">{activeTournament.players.length} {t('Players', 'Joueurs', 'لاعبين')}</span>
+                                        </div>
+                                        {activeTournament.winnerName && (
+                                            <div className="flex items-center gap-2 bg-status-ready/10 px-3 py-1 rounded-full border border-status-ready/30">
+                                                <Trophy className="h-4 w-4 text-status-ready" />
+                                                <span className="text-xs font-bold text-status-ready">{activeTournament.winnerName}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col">
+                                            <Badge variant="outline" className="text-xs px-2 py-0 bg-background border-primary/20">{activeTournament.status.toUpperCase()}</Badge>
+                                        </div>
+                                    </div>
 
-                                        return (
-                                            <div className="flex justify-between items-stretch gap-0 h-full">
-                                                {/* Left Side Hierarchy */}
-                                                <div className="flex flex-1 justify-start gap-0">
-                                                    {leftRounds.map((round, idx) => {
-                                                        const roundMatches = leftMatches.filter(m => m.round === round);
-                                                        const isSemiFinal = idx === leftRounds.length - 1;
-                                                        return (
-                                                            <div key={`left-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
-                                                                <div className="h-32 flex flex-col justify-center items-center text-center">
-                                                                    <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
-                                                                </div>
-                                                                <div className="flex flex-1">
-                                                                    <div className="flex flex-col justify-around gap-4 w-[180px]">
-                                                                        {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
+
+                                    <div ref={bracketRef} className="flex-1 overflow-x-auto overflow-y-auto bg-muted/5 min-h-0 relative m-0 mobile-iso-scroll">
+                                        {/* Background Watermark - Centered on content */}
+                                        <div
+                                            className="absolute inset-0 pointer-events-none opacity-[0.1]"
+                                            style={{
+                                                backgroundImage: "url('/NooryakBg.png')",
+                                                backgroundPosition: 'center',
+                                                backgroundRepeat: 'no-repeat',
+                                                backgroundSize: '1200px',
+                                                // Ensure it moves with content
+                                                width: '100%',
+                                                height: '100%',
+                                                minWidth: '1200px',
+                                            }}
+                                        />
+                                        <div className="p-4 min-w-[1200px] h-full relative z-10">
+                                            {(() => {
+                                                const matches = activeTournament.matches;
+                                                const rounds = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b);
+                                                const leftMatches = matches.filter(m => m.side === 'left');
+                                                const rightMatches = matches.filter(m => m.side === 'right');
+                                                const centerMatch = matches.find(m => m.side === 'center');
+                                                const leftRounds = [...rounds.slice(0, -1)];
+                                                const rightRounds = [...leftRounds];
+
+                                                return (
+                                                    <div className="flex justify-between items-stretch gap-0 h-full">
+                                                        {/* Left Side Hierarchy */}
+                                                        <div className="flex flex-1 justify-start gap-0">
+                                                            {leftRounds.map((round, idx) => {
+                                                                const roundMatches = leftMatches.filter(m => m.round === round);
+                                                                const isSemiFinal = idx === leftRounds.length - 1;
+                                                                return (
+                                                                    <div key={`left-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
+                                                                        <div className="h-32 flex flex-col justify-center items-center text-center">
+                                                                            <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
+                                                                        </div>
+                                                                        <div className="flex flex-1">
+                                                                            <div className="flex flex-col justify-around gap-4 w-[180px]">
+                                                                                {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
+                                                                            </div>
+                                                                            {idx < leftRounds.length - 1 && (
+                                                                                <div className="flex flex-col justify-around w-10">
+                                                                                    {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
+                                                                                        <Connector key={i} />
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                            {isSemiFinal && (
+                                                                                <div className="flex flex-col justify-around flex-1">
+                                                                                    <Connector isFinal />
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
-                                                                    {idx < leftRounds.length - 1 && (
-                                                                        <div className="flex flex-col justify-around w-10">
-                                                                            {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
-                                                                                <Connector key={i} />
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-                                                                    {isSemiFinal && (
-                                                                        <div className="flex flex-col justify-around flex-1">
-                                                                            <Connector isFinal />
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                                );
+                                                            })}
+                                                        </div>
 
-                                                {/* Final */}
-                                                <div className="flex flex-col w-[220px]">
-                                                    <div className="h-32 flex flex-col items-center justify-center text-center">
-                                                        <Trophy className="h-16 w-16 text-green-700 mx-auto mb-2 animate-bounce" />
-                                                        <span className="text-md font-black uppercase tracking-widest text-green-700">{t('FINAL', 'FINALE', 'النهائي')}</span>
-                                                    </div>
-                                                    <div className="flex-1 flex flex-col justify-center gap-6 relative">
-                                                        {centerMatch && <div className="w-full scale-110 shadow-xl ring-2 ring-primary/20 rounded-xl z-10"><MatchCard match={centerMatch} /></div>}
-                                                        {activeTournament.winnerName && (
-                                                            <div className="absolute -bottom-4 left-0 right-0 p-4 rounded-2xl bg-gradient-to-br from-status-ready/30 to-status-ready/5 border border-status-ready/30 text-center animate-in zoom-in duration-500">
-                                                                <span className="text-[10px] font-black uppercase text-green-800 block mb-1">{t('WINNER', 'VAINQUEUR', 'الفائز')}</span>
-                                                                <span className="text-lg font-black text-green-800 drop-shadow-sm">{activeTournament.winnerName}</span>
+                                                        {/* Final */}
+                                                        <div className="flex flex-col w-[220px]">
+                                                            <div className="h-32 flex flex-col items-center justify-center text-center">
+                                                                <Trophy className="h-16 w-16 text-green-700 mx-auto mb-2 animate-bounce" />
+                                                                <span className="text-md font-black uppercase tracking-widest text-green-700">{t('FINAL', 'FINALE', 'النهائي')}</span>
                                                             </div>
+                                                            <div className="flex-1 flex flex-col justify-center gap-6 relative">
+                                                                {centerMatch && <div className="w-full scale-110 shadow-xl ring-2 ring-primary/20 rounded-xl z-10"><MatchCard match={centerMatch} /></div>}
+                                                                {activeTournament.winnerName && (
+                                                                    <div className="absolute -bottom-4 left-0 right-0 p-4 rounded-2xl bg-gradient-to-br from-status-ready/30 to-status-ready/5 border border-status-ready/30 text-center animate-in zoom-in duration-500">
+                                                                        <span className="text-[10px] font-black uppercase text-green-800 block mb-1">{t('WINNER', 'VAINQUEUR', 'الفائز')}</span>
+                                                                        <span className="text-lg font-black text-green-800 drop-shadow-sm">{activeTournament.winnerName}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Right Side Hierarchy */}
+                                                        <div className="flex flex-1 justify-end gap-0">
+                                                            {[...rightRounds].reverse().map((round, idx) => {
+                                                                const roundMatches = rightMatches.filter(m => m.round === round);
+                                                                const isSemiFinal = idx === 0;
+                                                                return (
+                                                                    <div key={`right-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
+                                                                        <div className="h-32 flex flex-col justify-center items-center text-center">
+                                                                            <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
+                                                                        </div>
+                                                                        <div className="flex flex-1">
+                                                                            {isSemiFinal && (
+                                                                                <div className="flex flex-col justify-around flex-1">
+                                                                                    <Connector isRight isFinal />
+                                                                                </div>
+                                                                            )}
+                                                                            {idx > 0 && (
+                                                                                <div className="flex flex-col justify-around w-10">
+                                                                                    {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
+                                                                                        <Connector key={i} isRight />
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                            <div className="flex flex-col justify-around gap-4 w-[180px]">
+                                                                                {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+
+                                        {/* Centralized Edit Match Players Popover */}
+                                        {editingMatchId && (
+                                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-sm pointer-events-auto">
+                                                <div className="w-full max-w-sm space-y-4 bg-background border p-6 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                                                    <div className="flex flex-col text-center space-y-1">
+                                                        <h3 className="font-bold text-lg">{t('Edit Match Players', 'Modifier les Joueurs du Match', 'تعديل لاعبي المباراة')}</h3>
+                                                        {editingMatchLabel && (
+                                                            <span className="text-sm text-muted-foreground font-black uppercase tracking-wider">{t('Match', 'Match', 'المباراة')} {editingMatchLabel}</span>
                                                         )}
                                                     </div>
-                                                </div>
+                                                    <div className="space-y-4 py-2">
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs uppercase text-muted-foreground">{t('Player 1', 'Joueur 1', 'اللاعب 1')}</Label>
+                                                            <PlayerSelect
+                                                                value={editPlayer1}
+                                                                onChange={setEditPlayer1}
+                                                                placeholder={t('Select Player 1', 'Sélectionner Joueur 1', 'اختر اللاعب 1')}
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label className="text-xs uppercase text-muted-foreground">{t('Player 2', 'Joueur 2', 'اللاعب 2')}</Label>
+                                                            <PlayerSelect
+                                                                value={editPlayer2}
+                                                                onChange={setEditPlayer2}
+                                                                placeholder={t('Select Player 2', 'Sélectionner Joueur 2', 'اختر اللاعب 2')}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    {(() => {
+                                                        let error = null;
+                                                        const otherMatches = activeTournament?.matches.filter(m => m.id !== editingMatchId) || [];
 
-                                                {/* Right Side Hierarchy */}
-                                                <div className="flex flex-1 justify-end gap-0">
-                                                    {[...rightRounds].reverse().map((round, idx) => {
-                                                        const roundMatches = rightMatches.filter(m => m.round === round);
-                                                        const isSemiFinal = idx === 0;
+                                                        if (editPlayer1 && editPlayer2 && editPlayer1 === editPlayer2) {
+                                                            error = t('Players must be different', 'Les joueurs doivent être différents', 'يجب أن يكون اللاعبون مختلفين');
+                                                        } else if (editPlayer1 && otherMatches.some(m => m.player1Name === editPlayer1 || m.player2Name === editPlayer1)) {
+                                                            error = t(`${editPlayer1} is already in another match`, `${editPlayer1} est déjà dans un autre match`, `${editPlayer1} موجود بالفعل في مباراة أخرى`);
+                                                        } else if (editPlayer2 && otherMatches.some(m => m.player1Name === editPlayer2 || m.player2Name === editPlayer2)) {
+                                                            error = t(`${editPlayer2} is already in another match`, `${editPlayer2} est déjà dans un autre match`, `${editPlayer2} موجود بالفعل في مباراة أخرى`);
+                                                        }
+
                                                         return (
-                                                            <div key={`right-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
-                                                                <div className="h-32 flex flex-col justify-center items-center text-center">
-                                                                    <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
+                                                            <>
+                                                                {error && <div className="text-red-500 text-xs font-bold text-center px-2 bg-red-50 py-1.5 rounded-md border border-red-200">{error}</div>}
+                                                                <div className="flex gap-2 pt-2">
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        className="flex-1"
+                                                                        onClick={(e) => { e.stopPropagation(); setEditingMatchId(null); }}
+                                                                        disabled={updatePlayersMutation.isPending}
+                                                                    >
+                                                                        {t('Cancel', 'Annuler', 'إلغاء')}
+                                                                    </Button>
+                                                                    <Button
+                                                                        className="flex-1"
+                                                                        onClick={(e) => { e.stopPropagation(); handleUpdatePlayers(editingMatchId); }}
+                                                                        disabled={updatePlayersMutation.isPending || !!error}
+                                                                    >
+                                                                        {updatePlayersMutation.isPending ? t('Saving...', 'Enregistrement...', 'جاري الحفظ...') : t('Save Changes', 'Enregistrer', 'حفظ التعديلات')}
+                                                                    </Button>
                                                                 </div>
-                                                                <div className="flex flex-1">
-                                                                    {isSemiFinal && (
-                                                                        <div className="flex flex-col justify-around flex-1">
-                                                                            <Connector isRight isFinal />
-                                                                        </div>
-                                                                    )}
-                                                                    {idx > 0 && (
-                                                                        <div className="flex flex-col justify-around w-10">
-                                                                            {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
-                                                                                <Connector key={i} isRight />
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-                                                                    <div className="flex flex-col justify-around gap-4 w-[180px]">
-                                                                        {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
+                                                            </>
                                                         );
-                                                    })}
+                                                    })()}
                                                 </div>
                                             </div>
-                                        );
-                                    })()}
-                                </div>
-                            </div>
+                                        )}
+                                    </div>
 
-                            <div className="p-3 border-t bg-background mt-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                                <Button variant="outline" className="w-full h-10 font-bold" onClick={() => setStep('list')}>
-                                    {t('Back to List', 'Retour à la liste', 'العودة للقائمة')}
-                                </Button>
-                            </div>
+
+                                    <div className="p-3 border-t bg-background mt-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                                        <Button variant="outline" className="w-full h-10 font-bold" onClick={() => { setStep('list'); setShowLiveScore(false); }}>
+                                            {t('Back to List', 'Retour à la liste', 'العودة للقائمة')}
+                                        </Button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>

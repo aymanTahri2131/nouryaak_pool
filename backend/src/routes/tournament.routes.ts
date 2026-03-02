@@ -18,5 +18,6 @@ router.post('/', tournamentController.createTournament);
 router.put('/:id', tournamentController.updateTournament);
 router.post('/:id/finalize', tournamentController.finalizeTournament);
 router.post('/:id/matches/:matchId/start', tournamentController.startMatch);
+router.put('/:id/matches/:matchId/players', tournamentController.updateMatchPlayers);
 
 export default router;

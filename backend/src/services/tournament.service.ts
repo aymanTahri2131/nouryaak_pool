@@ -274,6 +274,75 @@ export async function startMatch(
 }
 
 /**
+ * Update players of a pending match
+ */
+export async function updateMatchPlayers(
+    tournamentId: string,
+    matchId: string,
+    data: { player1Name?: string; player2Name?: string }
+): Promise<IPoolTournamentDocument> {
+    const tournament = await PoolTournament.findById(tournamentId);
+    if (!tournament) throw new ApiError(404, 'Tournament not found');
+
+    const match = tournament.matches.find(m => m.id === matchId);
+    if (!match) throw new ApiError(404, 'Match not found');
+
+    if (match.status !== 'pending') {
+        throw new ApiError(400, 'Can only edit players for a pending match');
+    }
+
+    // Process player additions to tournament roster if they are new
+    const addedPlayers: string[] = [];
+
+    if (data.player1Name !== undefined) {
+        // Prevent setting identical names
+        if (data.player1Name && data.player1Name === (data.player2Name ?? match.player2Name)) {
+            throw new ApiError(400, 'Player names cannot be the same');
+        }
+
+        match.player1Name = data.player1Name || undefined; // allow removing a player (bye)
+
+        // Add to main players list if new and truthy
+        if (match.player1Name && !tournament.players.includes(match.player1Name)) {
+            addedPlayers.push(match.player1Name);
+        }
+    }
+
+    if (data.player2Name !== undefined) {
+        if (data.player2Name && data.player2Name === (data.player1Name ?? match.player1Name)) {
+            throw new ApiError(400, 'Player names cannot be the same');
+        }
+
+        match.player2Name = data.player2Name || undefined; // allow removing a player (bye)
+
+        // Add to main players list if new and truthy
+        if (match.player2Name && !tournament.players.includes(match.player2Name) && !addedPlayers.includes(match.player2Name)) {
+            addedPlayers.push(match.player2Name);
+        }
+    }
+
+    if (addedPlayers.length > 0) {
+        tournament.players = [...tournament.players, ...addedPlayers];
+    }
+
+    // Automatically resolve "byes" if one player is missing after an edit and the other isn't
+    if (match.player1Name && !match.player2Name) {
+        match.status = 'bye';
+        match.winnerName = match.player1Name;
+    } else if (!match.player1Name && match.player2Name) {
+        match.status = 'bye';
+        match.winnerName = match.player2Name;
+    } else if (match.player1Name && match.player2Name) {
+        // Revert a bye if both are now filled
+        match.status = 'pending';
+        match.winnerName = undefined;
+    }
+
+    await tournament.save();
+    return tournament;
+}
+
+/**
  * Resolve match result
  * This is called when a pool session linked to a tournament match ends
  */
@@ -323,4 +392,5 @@ export default {
     getTournamentById,
     startMatch,
     resolveMatch,
+    updateMatchPlayers,
 };

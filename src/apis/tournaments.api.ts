@@ -70,4 +70,16 @@ export const tournamentsApi = {
             id: result.data.tournament._id,
         };
     },
+
+    async updateMatchPlayers(tournamentId: string, matchId: string, data: { player1Name?: string; player2Name?: string }): Promise<PoolTournament> {
+        const response = await fetchWithAuth(`/pool-tournaments/${tournamentId}/matches/${matchId}/players`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+        const result = await handleResponse<{ data: { tournament: any } }>(response);
+        return {
+            ...result.data.tournament,
+            id: result.data.tournament._id,
+        };
+    },
 };

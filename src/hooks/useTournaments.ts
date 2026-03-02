@@ -66,3 +66,15 @@ export function useStartTournamentMatch() {
         },
     });
 }
+
+export function useUpdateTournamentMatchPlayers() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ tournamentId, matchId, data }: { tournamentId: string; matchId: string; data: { player1Name?: string; player2Name?: string } }) =>
+            tournamentsApi.updateMatchPlayers(tournamentId, matchId, data),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+            queryClient.invalidateQueries({ queryKey: ['tournament', variables.tournamentId] });
+        },
+    });
+}

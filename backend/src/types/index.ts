@@ -168,6 +168,7 @@ export interface IPoolPlayer {
   wins: number;
   losses: number;
   matchesPlayed: number;
+  avatarUrl?: string;
 }
 
 // Sync Status

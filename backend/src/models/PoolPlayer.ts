@@ -38,6 +38,10 @@ const poolPlayerSchema = new Schema<IPoolPlayerDocument>(
       default: 0,
       min: 0,
     },
+    avatarUrl: {
+      type: String,
+      default: 'https://res.cloudinary.com/doq0mdnkz/image/upload/v1772425099/gsekayy2xtsfratohk3q.png',
+    },
   },
   {
     timestamps: true,
