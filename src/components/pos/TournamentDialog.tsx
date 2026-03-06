@@ -23,7 +23,7 @@ import {
     useFinalizeTournament,
     useUpdateTournamentMatchPlayers,
 } from '@/hooks/useTournaments';
-import { usePoolTables } from '@/hooks/usePoolTables';
+import { usePoolTables, useCreatePlayer } from '@/hooks/usePoolTables';
 import {
     Trophy, Plus, Users, Layout,
     Play, CheckCircle2, X, Maximize2,
@@ -86,6 +86,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
     const finalizeMutation = useFinalizeTournament();
     const startMatchMutation = useStartTournamentMatch();
     const updatePlayersMutation = useUpdateTournamentMatchPlayers();
+    const createPlayerMutation = useCreatePlayer();
 
     // ... (keep handlers as is, they are inside the component)
 
@@ -594,13 +595,18 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                         className="flex-1"
                                     />
                                     <Button
-                                        onClick={() => {
+                                        onClick={async () => {
                                             if (newPlayer && !players.includes(newPlayer)) {
+                                                try {
+                                                    await createPlayerMutation.mutateAsync({ name: newPlayer });
+                                                } catch (error) {
+                                                    console.log('Player might already exist or creation failed', error);
+                                                }
                                                 setPlayers([...players, newPlayer]);
                                                 setNewPlayer('');
                                             }
                                         }}
-                                        disabled={!newPlayer}
+                                        disabled={!newPlayer || createPlayerMutation.isPending}
                                     >
                                         <Plus className="h-4 w-4" />
                                     </Button>

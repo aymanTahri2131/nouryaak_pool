@@ -209,3 +209,13 @@ export function useDeletePoolTable() {
     },
   });
 }
+
+export function useCreatePlayer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Parameters<typeof playersApi.create>[0]) => playersApi.create(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['players'] });
+    },
+  });
+}
