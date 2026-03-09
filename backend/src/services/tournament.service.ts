@@ -2,7 +2,7 @@
 // Tournament Service
 // ============================================
 
-import { PoolTournament, type IPoolTournamentDocument, type ITournamentMatch, type TournamentStatus } from '../models/PoolTournament.js';
+import { PoolTournament, type IPoolTournamentDocument, type ITournamentMatch, type TournamentStatus, type ITournamentGroup } from '../models/PoolTournament.js';
 import { PoolSession } from '../models/PoolSession.js';
 import { PoolTable } from '../models/PoolTable.js';
 import { ApiError } from '../middleware/error.middleware.js';
@@ -15,21 +15,23 @@ import mongoose from 'mongoose';
 /**
  * Generate a symmetric single-elimination bracket
  */
-function generateBracket(players: string[]): ITournamentMatch[] {
+function generateBracket(players: string[], shuffle: boolean = true, startIdCounter: number = 1): ITournamentMatch[] {
     const n = players.length;
     if (n < 2) throw new Error('At least 2 players required');
 
     // Shuffle players for a random draw
     const shuffledPlayers = [...players];
-    for (let i = shuffledPlayers.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+    if (shuffle) {
+        for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+        }
     }
 
     // Determine total slots (next power of 2)
     const totalSlots = Math.pow(2, Math.ceil(Math.log2(n)));
     const matches: ITournamentMatch[] = [];
-    let matchIdCounter = 1;
+    let matchIdCounter = startIdCounter;
 
     // Helper to create the tree structure
     function buildSubTree(
@@ -139,22 +141,160 @@ function generateBracket(players: string[]): ITournamentMatch[] {
 }
 
 /**
+ * Generate League Group Stage (Round-Robin)
+ */
+function generateGroupStage(players: string[]): { groups: ITournamentGroup[], matches: ITournamentMatch[] } {
+    if (players.length < 24 || players.length % 8 !== 0) {
+        throw new Error('League mode requires at least 24 players and a multiple of 8');
+    }
+
+    // Shuffle players
+    const shuffledPlayers = [...players];
+    for (let i = shuffledPlayers.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledPlayers[i], shuffledPlayers[j]] = [shuffledPlayers[j], shuffledPlayers[i]];
+    }
+
+    const numGroups = 8;
+    const playersPerGroup = Math.floor(shuffledPlayers.length / numGroups);
+    const groups: ITournamentGroup[] = [];
+    const matches: ITournamentMatch[] = [];
+    let matchIdCounter = 1;
+
+    for (let i = 0; i < numGroups; i++) {
+        const groupName = `Group ${String.fromCharCode(65 + i)}`;
+        const groupPlayers = shuffledPlayers.slice(i * playersPerGroup, (i + 1) * playersPerGroup);
+
+        const standings = groupPlayers.map(p => ({
+            playerName: p,
+            played: 0,
+            wins: 0,
+            framesFor: 0,
+            framesAgainst: 0,
+            frameDiff: 0,
+            points: 0,
+            headToHead: {}
+        }));
+
+        groups.push({
+            id: `group_${i}`,
+            name: groupName,
+            players: groupPlayers,
+            status: 'pending',
+            standings
+        });
+
+        if (groupPlayers.length === 3) {
+            // Specific order for 3 players: 1v2, 2v3, 3v1
+            const pairings = [[0, 1], [1, 2], [2, 0]];
+            pairings.forEach(([x, y]) => {
+                matches.push({
+                    id: `match_g${i}_${matchIdCounter++}`,
+                    round: 1,
+                    stage: 'group',
+                    groupId: `group_${i}`,
+                    status: 'pending',
+                    player1Name: groupPlayers[x],
+                    player2Name: groupPlayers[y],
+                    player1Score: 0,
+                    player2Score: 0,
+                    label: `${groupName}`
+                });
+            });
+        } else {
+            // Standard round robin for >3 players
+            for (let x = 0; x < groupPlayers.length; x++) {
+                for (let y = x + 1; y < groupPlayers.length; y++) {
+                    matches.push({
+                        id: `match_g${i}_${matchIdCounter++}`,
+                        round: 1,
+                        stage: 'group',
+                        groupId: `group_${i}`,
+                        status: 'pending',
+                        player1Name: groupPlayers[x],
+                        player2Name: groupPlayers[y],
+                        player1Score: 0,
+                        player2Score: 0,
+                        label: `${groupName}`
+                    });
+                }
+            }
+        }
+    }
+
+    return { groups, matches };
+}
+
+/**
+ * Generate Playoff Bracket for League Mode
+ */
+function generatePlayoffBracket(groups: ITournamentGroup[], startMatchId: number): ITournamentMatch[] {
+    // Top 16 mapping logic
+    // A=0, B=1, ... H=7
+    if (groups.length !== 8) throw new Error("Expected 8 groups for playoffs");
+
+    // Ensure standings are properly sorted before extracting seeds
+    groups.forEach(g => {
+        g.standings.sort((a, b) => {
+            if (b.points !== a.points) return b.points - a.points;
+            if (b.frameDiff !== a.frameDiff) return b.frameDiff - a.frameDiff;
+            if (b.framesFor !== a.framesFor) return b.framesFor - a.framesFor;
+            const aBeatsB = a.headToHead?.[b.playerName] || 0;
+            const bBeatsA = b.headToHead?.[a.playerName] || 0;
+            return bBeatsA - aBeatsB;
+        });
+    });
+
+    const seeds = [
+        groups[0].standings[0].playerName, groups[1].standings[1].playerName, // 1A vs 2B
+        groups[2].standings[0].playerName, groups[3].standings[1].playerName, // 1C vs 2D
+        groups[4].standings[0].playerName, groups[5].standings[1].playerName, // 1E vs 2F
+        groups[6].standings[0].playerName, groups[7].standings[1].playerName, // 1G vs 2H
+        groups[1].standings[0].playerName, groups[0].standings[1].playerName, // 1B vs 2A
+        groups[3].standings[0].playerName, groups[2].standings[1].playerName, // 1D vs 2C
+        groups[5].standings[0].playerName, groups[4].standings[1].playerName, // 1F vs 2E
+        groups[7].standings[0].playerName, groups[6].standings[1].playerName, // 1H vs 2G
+    ];
+
+    // Use generateBracket without shuffling to map directly
+    const playoffMatches = generateBracket(seeds, false, startMatchId);
+    playoffMatches.forEach(m => m.stage = 'knockout');
+    return playoffMatches;
+}
+
+/**
  * Create a new tournament
  */
 export async function createTournament(data: {
     name: string;
+    mode?: 'normal' | 'league';
     players: string[];
     tableIds: string[];
     status?: TournamentStatus;
 }): Promise<IPoolTournamentDocument> {
     const status = data.status || 'pending';
-    const matches = status === 'draft' ? [] : generateBracket(data.players);
+    const mode = data.mode || 'normal';
+
+    let matches: ITournamentMatch[] = [];
+    let groups: ITournamentGroup[] = [];
+
+    if (status !== 'draft') {
+        if (mode === 'league') {
+            const result = generateGroupStage(data.players);
+            matches = result.matches;
+            groups = result.groups;
+        } else {
+            matches = generateBracket(data.players);
+        }
+    }
 
     const tournament = await PoolTournament.create({
         name: data.name,
+        mode,
         players: data.players,
         tableIds: data.tableIds,
         matches,
+        groups: groups.length > 0 ? groups : undefined,
         status,
     });
 
@@ -166,6 +306,7 @@ export async function createTournament(data: {
  */
 export async function updateTournament(id: string, data: {
     name?: string;
+    mode?: 'normal' | 'league';
     players?: string[];
     tableIds?: string[];
 }): Promise<IPoolTournamentDocument> {
@@ -174,6 +315,7 @@ export async function updateTournament(id: string, data: {
     if (tournament.status !== 'draft') throw new ApiError(400, 'Only drafts can be updated');
 
     if (data.name) tournament.name = data.name;
+    if (data.mode) tournament.mode = data.mode;
     if (data.players) tournament.players = data.players;
     if (data.tableIds) tournament.tableIds = data.tableIds as any;
 
@@ -190,8 +332,14 @@ export async function finalizeTournament(id: string): Promise<IPoolTournamentDoc
     if (tournament.status !== 'draft') throw new ApiError(400, 'Only drafts can be finalized');
     if (tournament.players.length < 2) throw new ApiError(400, 'At least 2 players required to finalize');
 
-    const matches = generateBracket(tournament.players);
-    tournament.matches = matches;
+    if (tournament.mode === 'league') {
+        const result = generateGroupStage(tournament.players);
+        tournament.matches = result.matches;
+        tournament.groups = result.groups;
+    } else {
+        tournament.matches = generateBracket(tournament.players);
+    }
+
     tournament.status = 'pending';
 
     await tournament.save();
@@ -364,20 +512,85 @@ export async function resolveMatch(
     match.player1Score = score1;
     match.player2Score = score2;
 
-    // Move winner to next match if exists
-    if (match.nextMatchId && match.nextMatchSlot) {
-        const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
-        if (nextMatch) {
-            if (match.nextMatchSlot === 1) {
-                nextMatch.player1Name = winnerName;
-            } else if (match.nextMatchSlot === 2) {
-                nextMatch.player2Name = winnerName;
+    if (match.stage === 'group' && match.groupId && tournament.groups) {
+        // --- GROUP STAGE LOGIC ---
+        const group = tournament.groups.find(g => g.id === match.groupId);
+        if (group) {
+            const p1Standing = group.standings.find(s => s.playerName === match.player1Name);
+            const p2Standing = group.standings.find(s => s.playerName === match.player2Name);
+
+            if (p1Standing && p2Standing) {
+                p1Standing.played += 1;
+                p2Standing.played += 1;
+
+                p1Standing.framesFor += score1;
+                p1Standing.framesAgainst += score2;
+                p1Standing.frameDiff = p1Standing.framesFor - p1Standing.framesAgainst;
+
+                p2Standing.framesFor += score2;
+                p2Standing.framesAgainst += score1;
+                p2Standing.frameDiff = p2Standing.framesFor - p2Standing.framesAgainst;
+
+                if (winnerName === match.player1Name) {
+                    p1Standing.wins += 1;
+                    p1Standing.points += 1; // 1 point per win
+                    if (!p1Standing.headToHead) p1Standing.headToHead = {};
+                    p1Standing.headToHead[match.player2Name || ''] = (p1Standing.headToHead[match.player2Name || ''] || 0) + 1;
+                } else if (winnerName === match.player2Name) {
+                    p2Standing.wins += 1;
+                    p2Standing.points += 1;
+                    if (!p2Standing.headToHead) p2Standing.headToHead = {};
+                    p2Standing.headToHead[match.player1Name || ''] = (p2Standing.headToHead[match.player1Name || ''] || 0) + 1;
+                }
+
+                // Check if this single group is fully completed
+                const groupMatches = tournament.matches.filter(m => m.groupId === group.id);
+                if (groupMatches.every(m => m.status === 'completed')) {
+                    group.status = 'completed';
+                }
+
+                // Sort standings based on tie-breakers: Points > FrameDiff > FramesFor > HeadToHead
+                group.standings.sort((a, b) => {
+                    if (b.points !== a.points) return b.points - a.points;
+                    if (b.frameDiff !== a.frameDiff) return b.frameDiff - a.frameDiff;
+                    if (b.framesFor !== a.framesFor) return b.framesFor - a.framesFor;
+
+                    const aBeatsB = a.headToHead?.[b.playerName] || 0;
+                    const bBeatsA = b.headToHead?.[a.playerName] || 0;
+                    return bBeatsA - aBeatsB;
+                });
+
+                // Check if all groups are completed
+                if (tournament.groups.every(g => g.status === 'completed')) {
+                    try {
+                        const startMatchId = tournament.matches.length + 1;
+                        const playoffMatches = generatePlayoffBracket(tournament.groups, startMatchId);
+                        tournament.matches.push(...playoffMatches);
+                    } catch (e) {
+                        console.error('Failed to generate playoffs', e);
+                    }
+                }
             }
         }
     } else {
-        // This was the final!
-        tournament.status = 'completed';
-        tournament.winnerName = winnerName;
+        // --- KNOCKOUT STAGE LOGIC ---
+        // Move winner to next match if exists
+        if (match.nextMatchId && match.nextMatchSlot) {
+            const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
+            if (nextMatch) {
+                if (match.nextMatchSlot === 1) {
+                    nextMatch.player1Name = winnerName;
+                } else if (match.nextMatchSlot === 2) {
+                    nextMatch.player2Name = winnerName;
+                }
+                // Handle BYEs in knockout spontaneously if opponent is missing?
+                // Actually they are propagated during generateBracket, so usually we just wait for the other player.
+            }
+        } else {
+            // This was the final!
+            tournament.status = 'completed';
+            tournament.winnerName = winnerName;
+        }
     }
 
     await tournament.save();

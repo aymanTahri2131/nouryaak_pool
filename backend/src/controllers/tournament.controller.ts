@@ -28,12 +28,12 @@ export const getTournamentById = asyncHandler(async (req: Request, res: Response
 
 // POST /api/pool-tables/tournaments
 export const createTournament = asyncHandler(async (req: Request, res: Response) => {
-    const { name, players, tableIds, status } = req.body;
+    const { name, mode, players, tableIds, status } = req.body;
     if (!name || !players || !tableIds) {
         throw new ApiError(400, 'Invalid tournament data');
     }
 
-    const tournament = await tournamentService.createTournament({ name, players, tableIds, status });
+    const tournament = await tournamentService.createTournament({ name, mode, players, tableIds, status });
     res.status(201).json({
         success: true,
         data: { tournament },
@@ -43,8 +43,8 @@ export const createTournament = asyncHandler(async (req: Request, res: Response)
 
 // PUT /api/pool-tables/tournaments/:id
 export const updateTournament = asyncHandler(async (req: Request, res: Response) => {
-    const { name, players, tableIds } = req.body;
-    const tournament = await tournamentService.updateTournament(req.params.id as string, { name, players, tableIds });
+    const { name, mode, players, tableIds } = req.body;
+    const tournament = await tournamentService.updateTournament(req.params.id as string, { name, mode, players, tableIds });
     res.json({
         success: true,
         data: { tournament },

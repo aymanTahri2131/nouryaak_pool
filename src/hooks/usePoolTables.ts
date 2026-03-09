@@ -17,6 +17,13 @@ export function useSearchPlayers(query: string) {
   });
 }
 
+export function useAllPlayers(limit = 100) {
+  return useQuery({
+    queryKey: ['players', 'all', limit],
+    queryFn: () => playersApi.getAll(limit),
+  });
+}
+
 export function usePoolLeaderboard(limit = 10) {
   return useQuery({
     queryKey: ['poolLeaderboard', limit],

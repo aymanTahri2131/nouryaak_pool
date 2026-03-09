@@ -23,13 +23,26 @@ import {
     useFinalizeTournament,
     useUpdateTournamentMatchPlayers,
 } from '@/hooks/useTournaments';
-import { usePoolTables, useCreatePlayer } from '@/hooks/usePoolTables';
+import { usePoolTables, useAllPlayers } from '@/hooks/usePoolTables';
 import {
     Trophy, Plus, Users, Layout,
     Play, CheckCircle2, X, Maximize2,
-    Minimize2, Download, FileImage, Printer, Pen, Radio
+    Minimize2, Download, FileImage, Printer, Pen, Radio, ChevronDown
 } from 'lucide-react';
-import { PlayerSelect } from './PlayerSelect';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
+import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,6 +57,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useEffect } from 'react';
 import { LiveMatchesScore } from './LiveMatchesScore';
+import { PlayerSelect } from './PlayerSelect';
 
 export const TournamentDialog = ({ children }: { children?: React.ReactNode }) => {
     const { t } = useApp();
@@ -54,19 +68,23 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
 
     // Form State
     const [name, setName] = useState('');
+    const [mode, setMode] = useState<'normal' | 'league'>('normal');
+    const [activeTab, setActiveTab] = useState<'groups' | 'bracket'>('groups');
     const [players, setPlayers] = useState<string[]>([]);
     const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
-    const [newPlayer, setNewPlayer] = useState('');
+    const [playerSearchOpen, setPlayerSearchOpen] = useState(false);
     const [startingMatchId, setStartingMatchId] = useState<string | null>(null);
     const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
     const [editPlayer1, setEditPlayer1] = useState('');
     const [editPlayer2, setEditPlayer2] = useState('');
     const [editingMatchLabel, setEditingMatchLabel] = useState<string>('');
     const [showLiveScore, setShowLiveScore] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
 
     const { data: tournaments = [], isLoading: isLoadingList } = useTournaments();
     const { data: poolTables = [] } = usePoolTables();
     const { data: activeTournament, isLoading: isLoadingActive } = useTournament(selectedTournamentId || '');
+    const { data: allPlayers = [] } = useAllPlayers(100);
 
     useEffect(() => {
         if (activeTournament) {
@@ -86,20 +104,26 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
     const finalizeMutation = useFinalizeTournament();
     const startMatchMutation = useStartTournamentMatch();
     const updatePlayersMutation = useUpdateTournamentMatchPlayers();
-    const createPlayerMutation = useCreatePlayer();
 
     // ... (keep handlers as is, they are inside the component)
 
     const handleCreate = async (asDraft: boolean = false) => {
         if (!name) return;
-        if (!asDraft && players.length < 2) {
-            toast.error(t('At least 2 players required', 'Au moins 2 joueurs requis', 'مطلوب لاعبان على الأقل'));
-            return;
+        if (!asDraft) {
+            if (mode === 'normal' && players.length < 2) {
+                toast.error(t('At least 2 players required', 'Au moins 2 joueurs requis', 'مطلوب لاعبان على الأقل'));
+                return;
+            }
+            if (mode === 'league' && (players.length < 24 || players.length % 8 !== 0)) {
+                toast.error(t('League mode requires min 24 players (multiple of 8)', 'Le mode Ligue nécessite min 24 joueurs (multiple de 8)', 'نظام الدوري يتطلب على الأقل 24 لاعباً (مضاعفات 8)'));
+                return;
+            }
         }
 
         try {
             const tournament = await createMutation.mutateAsync({
                 name,
+                mode,
                 players,
                 tableIds: selectedTableIds,
                 status: asDraft ? 'draft' : 'pending',
@@ -130,6 +154,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                 id: selectedTournamentId,
                 data: {
                     name,
+                    mode,
                     players,
                     tableIds: selectedTableIds,
                 },
@@ -255,6 +280,8 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
 
     const resetForm = () => {
         setName('');
+        setMode('normal');
+        setActiveTab('groups');
         setPlayers([]);
         setSelectedTableIds([]);
         setStep('list');
@@ -495,6 +522,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                                     setSelectedTournamentId(tourney.id);
                                                     if (tourney.status === 'draft') {
                                                         setName(tourney.name);
+                                                        setMode((tourney as any).mode || 'normal');
                                                         setPlayers(tourney.players);
                                                         setSelectedTableIds(tourney.tableIds?.map((id: any) => typeof id === 'string' ? id : id._id || id.id) || []);
                                                         setStep('players');
@@ -547,6 +575,27 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                 />
                             </div>
 
+                            <div className="space-y-2">
+                                <Label>{t('Tournament Mode', 'Mode de tournoi', 'نظام البطولة')}</Label>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={mode === 'normal' ? 'default' : 'outline'}
+                                        className="flex-1 h-12"
+                                        onClick={() => setMode('normal')}
+                                    >
+                                        {t('Normal (Knockout)', 'Normal (Élimination)', 'عادي (خروج المغلوب)')}
+                                    </Button>
+                                    <Button
+                                        variant={mode === 'league' ? 'default' : 'outline'}
+                                        className="flex-1 h-12 flex flex-col items-center justify-center gap-0.5 leading-none"
+                                        onClick={() => setMode('league')}
+                                    >
+                                        <span>{t('League (Groups + KN)', 'Ligue (Poules + Élim)', 'دوري (مجموعات + خروج)')}</span>
+                                        <span className="text-[10px] opacity-70 font-normal">{t('Min 24 players (mult of 8)', 'Min 24 joueurs (mult de 8)', 'على الأقل 24 لاعباً (مضاعفات 8)')}</span>
+                                    </Button>
+                                </div>
+                            </div>
+
                             <div className="space-y-3">
                                 <Label>{t('Assigned Tables', 'Tables assignées', 'الطاولات المختارة')}</Label>
                                 <div className="grid grid-cols-4 gap-2">
@@ -587,30 +636,54 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                         <div className="p-6 space-y-6 flex-1 flex flex-col overflow-hidden">
                             <div className="space-y-2">
                                 <Label>{t('Add Players', 'Ajouter des joueurs', 'إضافة لاعبين')}</Label>
-                                <div className="flex gap-2">
-                                    <PlayerSelect
-                                        value={newPlayer}
-                                        onChange={setNewPlayer}
-                                        placeholder={t('Player name', 'Nom du joueur', 'اسم اللاعب')}
-                                        className="flex-1"
-                                    />
-                                    <Button
-                                        onClick={async () => {
-                                            if (newPlayer && !players.includes(newPlayer)) {
-                                                try {
-                                                    await createPlayerMutation.mutateAsync({ name: newPlayer });
-                                                } catch (error) {
-                                                    console.log('Player might already exist or creation failed', error);
-                                                }
-                                                setPlayers([...players, newPlayer]);
-                                                setNewPlayer('');
-                                            }
-                                        }}
-                                        disabled={!newPlayer || createPlayerMutation.isPending}
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                                <Popover open={playerSearchOpen} onOpenChange={setPlayerSearchOpen} modal={true}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={playerSearchOpen}
+                                            className="w-full justify-between font-normal text-muted-foreground hover:bg-muted/50 transition-colors"
+                                        >
+                                            {t('Select a player...', 'Sélectionner un joueur...', 'اختر لاعباً...')}
+                                            <Plus className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                        <Command className="w-full">
+                                            <CommandInput placeholder={t('Search players...', 'Rechercher des joueurs...', 'ابحث عن لاعبين...')} className="h-9" />
+                                            <CommandList>
+                                                <CommandEmpty>{t('No player found.', 'Aucun joueur trouvé.', 'لم يتم العثور على لاعب.')}</CommandEmpty>
+                                                <CommandGroup>
+                                                    {allPlayers.map((player) => {
+                                                        const isSelected = players.includes(player.name);
+                                                        return (
+                                                            <CommandItem
+                                                                key={player.id}
+                                                                value={player.name}
+                                                                onSelect={() => {
+                                                                    if (isSelected) {
+                                                                        setPlayers(players.filter(p => p !== player.name));
+                                                                    } else {
+                                                                        setPlayers([...players, player.name]);
+                                                                    }
+                                                                    // Do not close so multiple can be selected
+                                                                }}
+                                                            >
+                                                                <span className={cn(
+                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                    isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
+                                                                )}>
+                                                                    <Check className={cn("h-3 w-3")} />
+                                                                </span>
+                                                                {player.name}
+                                                            </CommandItem>
+                                                        );
+                                                    })}
+                                                </CommandGroup>
+                                            </CommandList>
+                                        </Command>
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                             <ScrollArea className="flex-1 border rounded-lg p-2 bg-muted/30">
@@ -636,6 +709,11 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                             {t('No players added yet', 'Aucun joueur ajouté', 'لم يتم إضافة لاعبين بعد')}
                                         </div>
                                     )}
+                                    {mode === 'league' && players.length > 0 && (players.length < 24 || players.length % 8 !== 0) && (
+                                        <div className="text-center py-4 text-yellow-600 dark:text-yellow-500 text-xs font-medium bg-yellow-50 dark:bg-yellow-500/10 rounded-lg">
+                                            {t(`League needs multiple of 8 players (min 24). Current: ${players.length}`, `La Ligue nécessite un multiple de 8 joueurs (min 24). Actuel: ${players.length}`, `يحتاج الدوري إلى مضاعفات 8 لاعبين (على الأقل 24). الحالي: ${players.length}`)}
+                                        </div>
+                                    )}
                                 </div>
                             </ScrollArea>
 
@@ -656,7 +734,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                         <Button
                                             className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                                             onClick={() => handleFinalize()}
-                                            disabled={finalizeMutation.isPending || players.length < 2}
+                                            disabled={finalizeMutation.isPending || (mode === 'normal' ? players.length < 2 : (players.length < 24 || players.length % 8 !== 0))}
                                         >
                                             {finalizeMutation.isPending ? t('Starting...', 'Démarrage...', 'جاري البدء...') : t('Start Tournament', 'Démarrer le tournoi', 'بدء البطولة')}
                                         </Button>
@@ -673,7 +751,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                         </Button>
                                         <Button
                                             className="flex-1"
-                                            disabled={players.length < 2 || createMutation.isPending}
+                                            disabled={createMutation.isPending || (mode === 'normal' ? players.length < 2 : (players.length < 24 || players.length % 8 !== 0))}
                                             onClick={() => handleCreate(false)}
                                         >
                                             {t('Start Tournament', 'Démarrer le tournoi', 'بدء البطولة')}
@@ -709,186 +787,274 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                         </div>
                                     </div>
 
-
-                                    <div ref={bracketRef} className="flex-1 overflow-x-auto overflow-y-auto bg-muted/5 min-h-0 relative m-0 mobile-iso-scroll">
-                                        {/* Background Watermark - Centered on content */}
-                                        <div
-                                            className="absolute inset-0 pointer-events-none opacity-[0.1]"
-                                            style={{
-                                                backgroundImage: "url('/NooryakBg.png')",
-                                                backgroundPosition: 'center',
-                                                backgroundRepeat: 'no-repeat',
-                                                backgroundSize: '1200px',
-                                                // Ensure it moves with content
-                                                width: '100%',
-                                                height: '100%',
-                                                minWidth: '1200px',
-                                            }}
-                                        />
-                                        <div className="p-4 min-w-[1200px] h-full relative z-10">
-                                            {(() => {
-                                                const matches = activeTournament.matches;
-                                                const rounds = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b);
-                                                const leftMatches = matches.filter(m => m.side === 'left');
-                                                const rightMatches = matches.filter(m => m.side === 'right');
-                                                const centerMatch = matches.find(m => m.side === 'center');
-                                                const leftRounds = [...rounds.slice(0, -1)];
-                                                const rightRounds = [...leftRounds];
-
-                                                return (
-                                                    <div className="flex justify-between items-stretch gap-0 h-full">
-                                                        {/* Left Side Hierarchy */}
-                                                        <div className="flex flex-1 justify-start gap-0">
-                                                            {leftRounds.map((round, idx) => {
-                                                                const roundMatches = leftMatches.filter(m => m.round === round);
-                                                                const isSemiFinal = idx === leftRounds.length - 1;
-                                                                return (
-                                                                    <div key={`left-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
-                                                                        <div className="h-32 flex flex-col justify-center items-center text-center">
-                                                                            <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
-                                                                        </div>
-                                                                        <div className="flex flex-1">
-                                                                            <div className="flex flex-col justify-around gap-4 w-[180px]">
-                                                                                {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
-                                                                            </div>
-                                                                            {idx < leftRounds.length - 1 && (
-                                                                                <div className="flex flex-col justify-around w-10">
-                                                                                    {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
-                                                                                        <Connector key={i} />
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                            {isSemiFinal && (
-                                                                                <div className="flex flex-col justify-around flex-1">
-                                                                                    <Connector isFinal />
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-
-                                                        {/* Final */}
-                                                        <div className="flex flex-col w-[220px]">
-                                                            <div className="h-32 flex flex-col items-center justify-center text-center">
-                                                                <Trophy className="h-16 w-16 text-green-700 mx-auto mb-2 animate-bounce" />
-                                                                <span className="text-md font-black uppercase tracking-widest text-green-700">{t('FINAL', 'FINALE', 'النهائي')}</span>
-                                                            </div>
-                                                            <div className="flex-1 flex flex-col justify-center gap-6 relative">
-                                                                {centerMatch && <div className="w-full scale-110 shadow-xl ring-2 ring-primary/20 rounded-xl z-10"><MatchCard match={centerMatch} /></div>}
-                                                                {activeTournament.winnerName && (
-                                                                    <div className="absolute -bottom-4 left-0 right-0 p-4 rounded-2xl bg-gradient-to-br from-status-ready/30 to-status-ready/5 border border-status-ready/30 text-center animate-in zoom-in duration-500">
-                                                                        <span className="text-[10px] font-black uppercase text-green-800 block mb-1">{t('WINNER', 'VAINQUEUR', 'الفائز')}</span>
-                                                                        <span className="text-lg font-black text-green-800 drop-shadow-sm">{activeTournament.winnerName}</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Right Side Hierarchy */}
-                                                        <div className="flex flex-1 justify-end gap-0">
-                                                            {[...rightRounds].reverse().map((round, idx) => {
-                                                                const roundMatches = rightMatches.filter(m => m.round === round);
-                                                                const isSemiFinal = idx === 0;
-                                                                return (
-                                                                    <div key={`right-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
-                                                                        <div className="h-32 flex flex-col justify-center items-center text-center">
-                                                                            <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
-                                                                        </div>
-                                                                        <div className="flex flex-1">
-                                                                            {isSemiFinal && (
-                                                                                <div className="flex flex-col justify-around flex-1">
-                                                                                    <Connector isRight isFinal />
-                                                                                </div>
-                                                                            )}
-                                                                            {idx > 0 && (
-                                                                                <div className="flex flex-col justify-around w-10">
-                                                                                    {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
-                                                                                        <Connector key={i} isRight />
-                                                                                    ))}
-                                                                                </div>
-                                                                            )}
-                                                                            <div className="flex flex-col justify-around gap-4 w-[180px]">
-                                                                                {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-
-                                        {/* Centralized Edit Match Players Popover */}
-                                        {editingMatchId && (
-                                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-sm pointer-events-auto">
-                                                <div className="w-full max-w-sm space-y-4 bg-background border p-6 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                                                    <div className="flex flex-col text-center space-y-1">
-                                                        <h3 className="font-bold text-lg">{t('Edit Match Players', 'Modifier les Joueurs du Match', 'تعديل لاعبي المباراة')}</h3>
-                                                        {editingMatchLabel && (
-                                                            <span className="text-sm text-muted-foreground font-black uppercase tracking-wider">{t('Match', 'Match', 'المباراة')} {editingMatchLabel}</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="space-y-4 py-2">
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs uppercase text-muted-foreground">{t('Player 1', 'Joueur 1', 'اللاعب 1')}</Label>
-                                                            <PlayerSelect
-                                                                value={editPlayer1}
-                                                                onChange={setEditPlayer1}
-                                                                placeholder={t('Select Player 1', 'Sélectionner Joueur 1', 'اختر اللاعب 1')}
-                                                            />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label className="text-xs uppercase text-muted-foreground">{t('Player 2', 'Joueur 2', 'اللاعب 2')}</Label>
-                                                            <PlayerSelect
-                                                                value={editPlayer2}
-                                                                onChange={setEditPlayer2}
-                                                                placeholder={t('Select Player 2', 'Sélectionner Joueur 2', 'اختر اللاعب 2')}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    {(() => {
-                                                        let error = null;
-                                                        const otherMatches = activeTournament?.matches.filter(m => m.id !== editingMatchId) || [];
-
-                                                        if (editPlayer1 && editPlayer2 && editPlayer1 === editPlayer2) {
-                                                            error = t('Players must be different', 'Les joueurs doivent être différents', 'يجب أن يكون اللاعبون مختلفين');
-                                                        } else if (editPlayer1 && otherMatches.some(m => m.player1Name === editPlayer1 || m.player2Name === editPlayer1)) {
-                                                            error = t(`${editPlayer1} is already in another match`, `${editPlayer1} est déjà dans un autre match`, `${editPlayer1} موجود بالفعل في مباراة أخرى`);
-                                                        } else if (editPlayer2 && otherMatches.some(m => m.player1Name === editPlayer2 || m.player2Name === editPlayer2)) {
-                                                            error = t(`${editPlayer2} is already in another match`, `${editPlayer2} est déjà dans un autre match`, `${editPlayer2} موجود بالفعل في مباراة أخرى`);
-                                                        }
-
-                                                        return (
-                                                            <>
-                                                                {error && <div className="text-red-500 text-xs font-bold text-center px-2 bg-red-50 py-1.5 rounded-md border border-red-200">{error}</div>}
-                                                                <div className="flex gap-2 pt-2">
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        className="flex-1"
-                                                                        onClick={(e) => { e.stopPropagation(); setEditingMatchId(null); }}
-                                                                        disabled={updatePlayersMutation.isPending}
-                                                                    >
-                                                                        {t('Cancel', 'Annuler', 'إلغاء')}
-                                                                    </Button>
-                                                                    <Button
-                                                                        className="flex-1"
-                                                                        onClick={(e) => { e.stopPropagation(); handleUpdatePlayers(editingMatchId); }}
-                                                                        disabled={updatePlayersMutation.isPending || !!error}
-                                                                    >
-                                                                        {updatePlayersMutation.isPending ? t('Saving...', 'Enregistrement...', 'جاري الحفظ...') : t('Save Changes', 'Enregistrer', 'حفظ التعديلات')}
-                                                                    </Button>
-                                                                </div>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
+                                    {activeTournament.mode === 'league' && (
+                                        <div className='bg-gray-100'>
+                                            <div className="flex bg-gray-200 p-3 rounded-md mx-4 sm:mx-4 md:mx-8 my-4 border shadow-sm gap-4">
+                                                <Button
+                                                    variant={activeTab === 'groups' ? 'default' : 'outline'}
+                                                    className="flex-1 h-8 text-xs font-bold"
+                                                    onClick={() => setActiveTab('groups')}
+                                                >
+                                                    {t('Group Stage', 'Phase de Poules', 'دور المجموعات')}
+                                                </Button>
+                                                <Button
+                                                    variant={activeTab === 'bracket' ? 'default' : 'outline'}
+                                                    className="flex-1 h-8 text-xs font-bold"
+                                                    onClick={() => setActiveTab('bracket')}
+                                                    disabled={!activeTournament.groups?.every((g: any) => g.status === 'completed')}
+                                                >
+                                                    {t('Knockout Bracket', 'Tableau Final', 'خروج المغلوب')}
+                                                </Button>
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
+
+                                    {activeTournament.mode === 'league' && activeTab === 'groups' ? (
+                                        <ScrollArea className="flex-1 p-6 sm:p-6 md:p-12 mobile-iso-scroll bg-gray-200 dark:bg-muted/20 z-20">
+                                            <div className={cn(
+                                                "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 px-6",
+                                                expandedGroups.length > 0 ? "items-start" : "items-stretch min-h-[60vh] lg:h-full"
+                                            )}>
+                                                {activeTournament.groups?.map((group: any) => (
+                                                    <div key={group.id} className={cn("border-4 rounded-xl bg-card overflow-hidden flex flex-col shadow-sm transition-all relative", group.status === 'completed' && "border-green-500/30 ring-1 ring-green-500/20")}>
+                                                        <div
+                                                            className={cn("px-3 py-2 font-black text-sm border-b flex justify-between items-center relative z-10 cursor-pointer select-none", group.status === 'completed' ? "bg-green-500/10 text-green-700" : "bg-muted")}
+                                                            onClick={() => {
+                                                                setExpandedGroups(prev =>
+                                                                    prev.includes(group.id)
+                                                                        ? prev.filter(id => id !== group.id)
+                                                                        : [...prev, group.id]
+                                                                );
+                                                            }}
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span>{group.name}</span>
+                                                                {group.status === 'completed' && <CheckCircle2 className="h-4 w-4" />}
+                                                            </div>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-black/5 dark:hover:bg-white/10">
+                                                                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", expandedGroups.includes(group.id) ? "rotate-180" : "")} />
+                                                            </Button>
+                                                        </div>
+                                                        <table className={cn("w-full text-xs relative z-10 flex-1 max-h-[225px]", expandedGroups.includes(group.id) ? "" : "min-h-[225px]")}>
+                                                            <thead className="bg-muted/30 text-muted-foreground border-b">
+                                                                <tr>
+                                                                    <th className="text-left font-bold px-2 py-1.5 w-1/2">{t('Player', 'Joueur', 'اللاعب')}</th>
+                                                                    <th className="text-center font-bold px-1 py-1.5" title="Played">P</th>
+                                                                    <th className="text-center font-bold px-1 py-1.5" title="Wins">W</th>
+                                                                    <th className="text-center font-bold px-1 py-1.5" title="Frame Diff">±</th>
+                                                                    <th className="text-center font-bold px-1 py-1.5 text-primary">Pts</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {group.standings.map((s: any, i: number) => (
+                                                                    <tr key={s.playerName} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                                                                        <td className="px-2 py-1.5 font-medium flex items-center gap-1.5">
+                                                                            <span className={cn("inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shadow-sm", i < 2 ? "bg-green-100 text-green-700 font-black ring-1 ring-green-500/20" : "bg-muted text-muted-foreground")}>{i + 1}</span>
+                                                                            <span className="truncate max-w-[80px]" title={s.playerName}>{s.playerName}</span>
+                                                                        </td>
+                                                                        <td className="text-center px-1 py-1.5 text-muted-foreground">{s.played}</td>
+                                                                        <td className="text-center px-1 py-1.5">{s.wins}</td>
+                                                                        <td className="text-center px-1 py-1.5">{s.frameDiff > 0 ? '+' + s.frameDiff : s.frameDiff === 0 ? '-' : s.frameDiff}</td>
+                                                                        <td className="text-center px-1 py-1.5 font-bold text-primary">{s.points}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                        <div className={cn("transition-all duration-300 overflow-hidden", expandedGroups.includes(group.id) ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0")}>
+                                                            <div className="p-3 space-y-2 bg-muted/5 border-t relative z-10">
+                                                                <div className="flex flex-col gap-2 relative">
+                                                                    {activeTournament.matches.filter(m => m.groupId === group.id).map(m => (
+                                                                        <MatchCard key={m.id} match={m} />
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    ) : (
+                                        <div ref={bracketRef} className="flex-1 overflow-x-auto overflow-y-auto bg-muted/5 min-h-0 relative m-0 mobile-iso-scroll">
+                                            {/* Background Watermark - Centered on content */}
+                                            <div
+                                                className="absolute inset-0 pointer-events-none opacity-[0.1]"
+                                                style={{
+                                                    backgroundImage: "url('/NooryakBg.png')",
+                                                    backgroundPosition: 'center',
+                                                    backgroundRepeat: 'no-repeat',
+                                                    backgroundSize: '1200px',
+                                                    // Ensure it moves with content
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    minWidth: '1200px',
+                                                }}
+                                            />
+                                            <div className="p-4 min-w-[1200px] h-full relative z-10">
+                                                {(() => {
+                                                    const matches = activeTournament.matches;
+                                                    const rounds = Array.from(new Set(matches.map(m => m.round))).sort((a, b) => a - b);
+                                                    const leftMatches = matches.filter(m => m.side === 'left');
+                                                    const rightMatches = matches.filter(m => m.side === 'right');
+                                                    const centerMatch = matches.find(m => m.side === 'center');
+                                                    const leftRounds = [...rounds.slice(0, -1)];
+                                                    const rightRounds = [...leftRounds];
+
+                                                    return (
+                                                        <div className="flex justify-between items-stretch gap-0 h-full">
+                                                            {/* Left Side Hierarchy */}
+                                                            <div className="flex flex-1 justify-start gap-0">
+                                                                {leftRounds.map((round, idx) => {
+                                                                    const roundMatches = leftMatches.filter(m => m.round === round);
+                                                                    const isSemiFinal = idx === leftRounds.length - 1;
+                                                                    return (
+                                                                        <div key={`left-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
+                                                                            <div className="h-32 flex flex-col justify-center items-center text-center">
+                                                                                <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
+                                                                            </div>
+                                                                            <div className="flex flex-1">
+                                                                                <div className="flex flex-col justify-around gap-4 w-[180px]">
+                                                                                    {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
+                                                                                </div>
+                                                                                {idx < leftRounds.length - 1 && (
+                                                                                    <div className="flex flex-col justify-around w-10">
+                                                                                        {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
+                                                                                            <Connector key={i} />
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                                {isSemiFinal && (
+                                                                                    <div className="flex flex-col justify-around flex-1">
+                                                                                        <Connector isFinal />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            {/* Final */}
+                                                            <div className="flex flex-col w-[220px]">
+                                                                <div className="h-32 flex flex-col items-center justify-center text-center">
+                                                                    <Trophy className="h-16 w-16 text-green-700 mx-auto mb-2 animate-bounce" />
+                                                                    <span className="text-md font-black uppercase tracking-widest text-green-700">{t('FINAL', 'FINALE', 'النهائي')}</span>
+                                                                </div>
+                                                                <div className="flex-1 flex flex-col justify-center gap-6 relative">
+                                                                    {centerMatch && <div className="w-full scale-110 shadow-xl ring-2 ring-primary/20 rounded-xl z-10"><MatchCard match={centerMatch} /></div>}
+                                                                    {activeTournament.winnerName && (
+                                                                        <div className="absolute -bottom-4 left-0 right-0 p-4 rounded-2xl bg-gradient-to-br from-status-ready/30 to-status-ready/5 border border-status-ready/30 text-center animate-in zoom-in duration-500">
+                                                                            <span className="text-[10px] font-black uppercase text-green-800 block mb-1">{t('WINNER', 'VAINQUEUR', 'الفائز')}</span>
+                                                                            <span className="text-lg font-black text-green-800 drop-shadow-sm">{activeTournament.winnerName}</span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Right Side Hierarchy */}
+                                                            <div className="flex flex-1 justify-end gap-0">
+                                                                {[...rightRounds].reverse().map((round, idx) => {
+                                                                    const roundMatches = rightMatches.filter(m => m.round === round);
+                                                                    const isSemiFinal = idx === 0;
+                                                                    return (
+                                                                        <div key={`right-group-${round}`} className={cn("flex flex-col", isSemiFinal && "flex-1")}>
+                                                                            <div className="h-32 flex flex-col justify-center items-center text-center">
+                                                                                <span className="text-[10px] font-black uppercase text-muted-foreground/60 tracking-wider">{t(`Round ${round}`, `Tour ${round}`, `الجولة ${round}`)}</span>
+                                                                            </div>
+                                                                            <div className="flex flex-1">
+                                                                                {isSemiFinal && (
+                                                                                    <div className="flex flex-col justify-around flex-1">
+                                                                                        <Connector isRight isFinal />
+                                                                                    </div>
+                                                                                )}
+                                                                                {idx > 0 && (
+                                                                                    <div className="flex flex-col justify-around w-10">
+                                                                                        {Array.from({ length: roundMatches.length / 2 }).map((_, i) => (
+                                                                                            <Connector key={i} isRight />
+                                                                                        ))}
+                                                                                    </div>
+                                                                                )}
+                                                                                <div className="flex flex-col justify-around gap-4 w-[180px]">
+                                                                                    {roundMatches.map(m => <MatchCard key={m.id} match={m} />)}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Centralized Edit Match Players Popover */}
+                                    {editingMatchId && (
+                                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-sm pointer-events-auto">
+                                            <div className="w-full max-w-sm space-y-4 bg-background border p-6 rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                                                <div className="flex flex-col text-center space-y-1">
+                                                    <h3 className="font-bold text-lg">{t('Edit Match Players', 'Modifier les Joueurs du Match', 'تعديل لاعبي المباراة')}</h3>
+                                                    {editingMatchLabel && (
+                                                        <span className="text-sm text-muted-foreground font-black uppercase tracking-wider">{t('Match', 'Match', 'المباراة')} {editingMatchLabel}</span>
+                                                    )}
+                                                </div>
+                                                <div className="space-y-4 py-2">
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs uppercase text-muted-foreground">{t('Player 1', 'Joueur 1', 'اللاعب 1')}</Label>
+                                                        <PlayerSelect
+                                                            value={editPlayer1}
+                                                            onChange={setEditPlayer1}
+                                                            placeholder={t('Select Player 1', 'Sélectionner Joueur 1', 'اختر اللاعب 1')}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs uppercase text-muted-foreground">{t('Player 2', 'Joueur 2', 'اللاعب 2')}</Label>
+                                                        <PlayerSelect
+                                                            value={editPlayer2}
+                                                            onChange={setEditPlayer2}
+                                                            placeholder={t('Select Player 2', 'Sélectionner Joueur 2', 'اختر اللاعب 2')}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {(() => {
+                                                    let error = null;
+                                                    const otherMatches = activeTournament?.matches.filter(m => m.id !== editingMatchId) || [];
+
+                                                    if (editPlayer1 && editPlayer2 && editPlayer1 === editPlayer2) {
+                                                        error = t('Players must be different', 'Les joueurs doivent être différents', 'يجب أن يكون اللاعبون مختلفين');
+                                                    } else if (editPlayer1 && otherMatches.some(m => m.player1Name === editPlayer1 || m.player2Name === editPlayer1)) {
+                                                        error = t(`${editPlayer1} is already in another match`, `${editPlayer1} est déjà dans un autre match`, `${editPlayer1} موجود بالفعل في مباراة أخرى`);
+                                                    } else if (editPlayer2 && otherMatches.some(m => m.player1Name === editPlayer2 || m.player2Name === editPlayer2)) {
+                                                        error = t(`${editPlayer2} is already in another match`, `${editPlayer2} est déjà dans un autre match`, `${editPlayer2} موجود بالفعل في مباراة أخرى`);
+                                                    }
+
+                                                    return (
+                                                        <>
+                                                            {error && <div className="text-red-500 text-xs font-bold text-center px-2 bg-red-50 py-1.5 rounded-md border border-red-200">{error}</div>}
+                                                            <div className="flex gap-2 pt-2">
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="flex-1"
+                                                                    onClick={(e) => { e.stopPropagation(); setEditingMatchId(null); }}
+                                                                    disabled={updatePlayersMutation.isPending}
+                                                                >
+                                                                    {t('Cancel', 'Annuler', 'إلغاء')}
+                                                                </Button>
+                                                                <Button
+                                                                    className="flex-1"
+                                                                    onClick={(e) => { e.stopPropagation(); handleUpdatePlayers(editingMatchId); }}
+                                                                    disabled={updatePlayersMutation.isPending || !!error}
+                                                                >
+                                                                    {updatePlayersMutation.isPending ? t('Saving...', 'Enregistrement...', 'جاري الحفظ...') : t('Save Changes', 'Enregistrer', 'حفظ التعديلات')}
+                                                                </Button>
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+
 
 
                                     <div className="p-3 border-t bg-background mt-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">

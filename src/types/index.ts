@@ -139,13 +139,34 @@ export interface TournamentMatch {
   nextMatchSlot?: number;
   label?: string;
   side?: 'left' | 'right' | 'center';
+  stage?: 'group' | 'knockout';
+  groupId?: string;
+}
+
+export interface TournamentGroup {
+  id: string;
+  name: string;
+  players: string[];
+  status: 'pending' | 'in_progress' | 'completed';
+  standings: {
+    playerName: string;
+    played: number;
+    wins: number;
+    framesFor: number;
+    framesAgainst: number;
+    frameDiff: number;
+    points: number;
+    headToHead: Record<string, number>;
+  }[];
 }
 
 export interface PoolTournament {
   id: string;
   name: string;
+  mode?: 'normal' | 'league';
   status: TournamentStatus;
   players: string[];
+  groups?: TournamentGroup[];
   tableIds: string[];
   matches: TournamentMatch[];
   winnerName?: string;

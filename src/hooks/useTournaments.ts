@@ -23,7 +23,7 @@ export function useTournament(id: string) {
 export function useCreateTournament() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { name: string; players: string[]; tableIds: string[]; status?: string }) =>
+        mutationFn: (data: { name: string; mode?: 'normal' | 'league'; players: string[]; tableIds: string[]; status?: string }) =>
             tournamentsApi.create(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tournaments'] });
@@ -34,7 +34,7 @@ export function useCreateTournament() {
 export function useUpdateTournament() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: { name?: string; players?: string[]; tableIds?: string[] } }) =>
+        mutationFn: ({ id, data }: { id: string; data: { name?: string; mode?: 'normal' | 'league'; players?: string[]; tableIds?: string[] } }) =>
             tournamentsApi.update(id, data),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['tournaments'] });
