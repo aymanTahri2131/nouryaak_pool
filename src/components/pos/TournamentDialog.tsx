@@ -835,7 +835,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                                                 <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", expandedGroups.includes(group.id) ? "rotate-180" : "")} />
                                                             </Button>
                                                         </div>
-                                                        <table className={cn("w-full text-xs relative z-10 flex-1 max-h-[225px]", expandedGroups.includes(group.id) ? "" : "min-h-[225px]")}>
+                                                        <table className={cn("w-full text-xs relative z-10 flex-1 max-h-[200px]", expandedGroups.includes(group.id) ? "" : "min-h-[200px]")}>
                                                             <thead className="bg-muted/30 text-muted-foreground border-b">
                                                                 <tr>
                                                                     <th className="text-left font-bold px-2 py-1.5 w-1/2">{t('Player', 'Joueur', 'اللاعب')}</th>
