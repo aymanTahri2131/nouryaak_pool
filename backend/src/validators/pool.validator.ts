@@ -12,7 +12,7 @@ export const startPiecesSessionSchema = z.object({
 
 // Start challenge session
 export const startChallengeSessionSchema = z.object({
-  mode: z.union([z.literal(3), z.literal(5), z.literal(7)]),
+  mode: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(9)]),
   player1Name: z.string().min(1, 'Player 1 name required'),
   player2Name: z.string().min(1, 'Player 2 name required'),
   pricePerGame: z.number().min(0).optional(),
@@ -27,7 +27,7 @@ export const startSessionSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('challenge'),
-    mode: z.union([z.literal(3), z.literal(5), z.literal(7)]),
+    mode: z.union([z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7), z.literal(9)]),
     player1Name: z.string().min(1),
     player2Name: z.string().min(1),
     pricePerGame: z.number().min(0).optional(),

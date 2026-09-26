@@ -97,7 +97,7 @@ export interface PoolPiece {
 
 export interface PoolChallenge {
   id: string;
-  mode: 3 | 5 | 7;
+  mode: 3 | 4 | 5 | 6 | 7 | 9;
   player1Name: string;
   player2Name: string;
   player1Score: number;

@@ -144,7 +144,7 @@ export function mapPoolPiece(apiPiece: Record<string, unknown>, index: number): 
 export function mapPoolChallenge(apiChallenge: Record<string, unknown>): PoolChallenge {
   return {
     id: (apiChallenge._id as string) || 'challenge-1',
-    mode: (apiChallenge.mode as 3 | 5 | 7) ?? 3,
+    mode: (apiChallenge.mode as 3 | 4 | 5 | 6 | 7 | 9) ?? 3,
     player1Name: (apiChallenge.player1Name as string) || '',
     player2Name: (apiChallenge.player2Name as string) || '',
     player1Score: (apiChallenge.player1Score as number) ?? 0,

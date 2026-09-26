@@ -34,7 +34,7 @@ export const poolTablesApi = {
 
   async startChallengeSession(
     tableId: string,
-    mode: 3 | 5 | 6 | 7 | 9,
+    mode: 3 | 4 | 5 | 6 | 7 | 9,
     player1Name: string,
     player2Name: string,
     pricePerGame?: number
