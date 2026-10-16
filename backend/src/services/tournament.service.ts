@@ -13,6 +13,25 @@ import mongoose from 'mongoose';
  * Generate a single-elimination bracket
  */
 /**
+ * Standard bracket seed distribution order
+ * Returns 1-based seed numbers arranged in tournament bracket order
+ */
+function getBracketSeedOrder(numSlots: number): number[] {
+    const rounds = Math.log2(numSlots) - 1;
+    let seeds = [1, 2];
+    for (let r = 0; r < rounds; r++) {
+        const nextSeeds: number[] = [];
+        const length = seeds.length * 2 + 1;
+        for (const s of seeds) {
+            nextSeeds.push(s);
+            nextSeeds.push(length - s);
+        }
+        seeds = nextSeeds;
+    }
+    return seeds;
+}
+
+/**
  * Generate a symmetric single-elimination bracket
  */
 function generateBracket(players: string[], shuffle: boolean = true, startIdCounter: number = 1): ITournamentMatch[] {
@@ -73,6 +92,9 @@ function generateBracket(players: string[], shuffle: boolean = true, startIdCoun
             } else {
                 p1.nextMatchId = match.id;
                 p1.nextMatchSlot = 1;
+                if (p1.winnerName) {
+                    match.player1Name = p1.winnerName;
+                }
             }
 
             // Link P2
@@ -81,13 +103,19 @@ function generateBracket(players: string[], shuffle: boolean = true, startIdCoun
             } else {
                 p2.nextMatchId = match.id;
                 p2.nextMatchSlot = 2;
+                if (p2.winnerName) {
+                    match.player2Name = p2.winnerName;
+                }
             }
 
-            // Handle BYE logic: if one player is missing, they advance
-            if (match.player1Name && !match.player2Name) {
+            // Handle BYE logic: only if an actual opponent slot is missing (empty leaf "")
+            const p1Empty = p1 === "" || (typeof p1 === 'string' && !p1);
+            const p2Empty = p2 === "" || (typeof p2 === 'string' && !p2);
+
+            if (!p1Empty && p2Empty && match.player1Name) {
                 match.status = 'bye';
                 match.winnerName = match.player1Name;
-            } else if (!match.player1Name && match.player2Name) {
+            } else if (p1Empty && !p2Empty && match.player2Name) {
                 match.status = 'bye';
                 match.winnerName = match.player2Name;
             }
@@ -104,9 +132,20 @@ function generateBracket(players: string[], shuffle: boolean = true, startIdCoun
     }
 
     // Pad players and split for symmetry
-    const paddedPlayers = [...shuffledPlayers];
-    while (paddedPlayers.length < totalSlots) {
-        paddedPlayers.push("");
+    let paddedPlayers: string[];
+    if (shuffle) {
+        const seedOrder = getBracketSeedOrder(totalSlots);
+        paddedPlayers = seedOrder.map(seed => {
+            if (seed <= n) {
+                return shuffledPlayers[seed - 1];
+            }
+            return "";
+        });
+    } else {
+        paddedPlayers = [...shuffledPlayers];
+        while (paddedPlayers.length < totalSlots) {
+            paddedPlayers.push("");
+        }
     }
 
     const leftHalf = paddedPlayers.slice(0, totalSlots / 2);
@@ -435,20 +474,25 @@ export async function updateMatchPlayers(
     const match = tournament.matches.find(m => m.id === matchId);
     if (!match) throw new ApiError(404, 'Match not found');
 
-    if (match.status !== 'pending') {
-        throw new ApiError(400, 'Can only edit players for a pending match');
+    if (match.status !== 'pending' && match.status !== 'bye') {
+        throw new ApiError(400, 'Can only edit players for a pending or bye match');
     }
+
+    const oldWinner = match.winnerName;
 
     // Process player additions to tournament roster if they are new
     const addedPlayers: string[] = [];
 
     if (data.player1Name !== undefined) {
+        const p1Trimmed = data.player1Name.trim();
+        const p2Current = data.player2Name !== undefined ? data.player2Name.trim() : (match.player2Name || '');
+
         // Prevent setting identical names
-        if (data.player1Name && data.player1Name === (data.player2Name ?? match.player2Name)) {
+        if (p1Trimmed && p1Trimmed.toLowerCase() === p2Current.toLowerCase()) {
             throw new ApiError(400, 'Player names cannot be the same');
         }
 
-        match.player1Name = data.player1Name || undefined; // allow removing a player (bye)
+        match.player1Name = p1Trimmed || undefined; // allow removing a player (bye)
 
         // Add to main players list if new and truthy
         if (match.player1Name && !tournament.players.includes(match.player1Name)) {
@@ -457,11 +501,14 @@ export async function updateMatchPlayers(
     }
 
     if (data.player2Name !== undefined) {
-        if (data.player2Name && data.player2Name === (data.player1Name ?? match.player1Name)) {
+        const p2Trimmed = data.player2Name.trim();
+        const p1Current = data.player1Name !== undefined ? data.player1Name.trim() : (match.player1Name || '');
+
+        if (p2Trimmed && p2Trimmed.toLowerCase() === p1Current.toLowerCase()) {
             throw new ApiError(400, 'Player names cannot be the same');
         }
 
-        match.player2Name = data.player2Name || undefined; // allow removing a player (bye)
+        match.player2Name = p2Trimmed || undefined; // allow removing a player (bye)
 
         // Add to main players list if new and truthy
         if (match.player2Name && !tournament.players.includes(match.player2Name) && !addedPlayers.includes(match.player2Name)) {
@@ -477,13 +524,64 @@ export async function updateMatchPlayers(
     if (match.player1Name && !match.player2Name) {
         match.status = 'bye';
         match.winnerName = match.player1Name;
+
+        // Propagate bye winner to next match
+        if (match.nextMatchId && match.nextMatchSlot) {
+            const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
+            if (nextMatch) {
+                if (match.nextMatchSlot === 1) {
+                    nextMatch.player1Name = match.player1Name;
+                } else if (match.nextMatchSlot === 2) {
+                    nextMatch.player2Name = match.player1Name;
+                }
+            }
+        }
     } else if (!match.player1Name && match.player2Name) {
         match.status = 'bye';
         match.winnerName = match.player2Name;
+
+        // Propagate bye winner to next match
+        if (match.nextMatchId && match.nextMatchSlot) {
+            const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
+            if (nextMatch) {
+                if (match.nextMatchSlot === 1) {
+                    nextMatch.player1Name = match.player2Name;
+                } else if (match.nextMatchSlot === 2) {
+                    nextMatch.player2Name = match.player2Name;
+                }
+            }
+        }
     } else if (match.player1Name && match.player2Name) {
-        // Revert a bye if both are now filled
+        // Both players are present: regular pending match
         match.status = 'pending';
         match.winnerName = undefined;
+
+        // Revert propagation in nextMatch if this match previously had an automatic bye winner
+        if (match.nextMatchId && match.nextMatchSlot && oldWinner) {
+            const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
+            if (nextMatch) {
+                if (match.nextMatchSlot === 1 && nextMatch.player1Name === oldWinner) {
+                    nextMatch.player1Name = undefined;
+                } else if (match.nextMatchSlot === 2 && nextMatch.player2Name === oldWinner) {
+                    nextMatch.player2Name = undefined;
+                }
+            }
+        }
+    } else {
+        // Both empty
+        match.status = 'pending';
+        match.winnerName = undefined;
+
+        if (match.nextMatchId && match.nextMatchSlot && oldWinner) {
+            const nextMatch = tournament.matches.find(m => m.id === match.nextMatchId);
+            if (nextMatch) {
+                if (match.nextMatchSlot === 1 && nextMatch.player1Name === oldWinner) {
+                    nextMatch.player1Name = undefined;
+                } else if (match.nextMatchSlot === 2 && nextMatch.player2Name === oldWinner) {
+                    nextMatch.player2Name = undefined;
+                }
+            }
+        }
     }
 
     await tournament.save();

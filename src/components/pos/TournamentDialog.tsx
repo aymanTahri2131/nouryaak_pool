@@ -222,8 +222,8 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                 tournamentId: selectedTournamentId,
                 matchId,
                 data: {
-                    player1Name: editPlayer1 || undefined,
-                    player2Name: editPlayer2 || undefined,
+                    player1Name: editPlayer1.trim(),
+                    player2Name: editPlayer2.trim(),
                 }
             });
             setEditingMatchId(null);
@@ -306,7 +306,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                 </div>
             )}
 
-            {match.status === 'pending' && !startingMatchId && editingMatchId !== match.id && (
+            {(match.status === 'pending' || match.status === 'bye') && !startingMatchId && editingMatchId !== match.id && (
                 <Button
                     variant="ghost"
                     size="icon"
@@ -332,7 +332,7 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                         "text-xs font-bold truncate",
                         match.winnerName === match.player1Name ? 'text-status-ready' : ''
                     )}>
-                        {match.player1Name || (match.status === 'pending' ? '???' : '')}
+                        {match.player1Name || (match.status === 'bye' ? 'BYE' : match.status === 'pending' ? '???' : '')}
                     </span>
                     {match.status === 'completed' && <span className="font-mono font-bold text-[10px] ml-2 text-muted-foreground">{match.player1Score}</span>}
                 </div>
@@ -1018,13 +1018,14 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                                 </div>
                                                 {(() => {
                                                     let error = null;
-                                                    const otherMatches = activeTournament?.matches.filter(m => m.id !== editingMatchId) || [];
+                                                    const currentMatch = activeTournament?.matches.find(m => m.id === editingMatchId);
+                                                    const sameRoundMatches = activeTournament?.matches.filter(m => m.id !== editingMatchId && m.round === currentMatch?.round) || [];
 
-                                                    if (editPlayer1 && editPlayer2 && editPlayer1 === editPlayer2) {
+                                                    if (editPlayer1 && editPlayer2 && editPlayer1.trim().toLowerCase() === editPlayer2.trim().toLowerCase()) {
                                                         error = t('Players must be different', 'Les joueurs doivent être différents', 'يجب أن يكون اللاعبون مختلفين');
-                                                    } else if (editPlayer1 && otherMatches.some(m => m.player1Name === editPlayer1 || m.player2Name === editPlayer1)) {
+                                                    } else if (editPlayer1 && sameRoundMatches.some(m => m.player1Name?.trim().toLowerCase() === editPlayer1.trim().toLowerCase() || m.player2Name?.trim().toLowerCase() === editPlayer1.trim().toLowerCase())) {
                                                         error = t(`${editPlayer1} is already in another match`, `${editPlayer1} est déjà dans un autre match`, `${editPlayer1} موجود بالفعل في مباراة أخرى`);
-                                                    } else if (editPlayer2 && otherMatches.some(m => m.player1Name === editPlayer2 || m.player2Name === editPlayer2)) {
+                                                    } else if (editPlayer2 && sameRoundMatches.some(m => m.player1Name?.trim().toLowerCase() === editPlayer2.trim().toLowerCase() || m.player2Name?.trim().toLowerCase() === editPlayer2.trim().toLowerCase())) {
                                                         error = t(`${editPlayer2} is already in another match`, `${editPlayer2} est déjà dans un autre match`, `${editPlayer2} موجود بالفعل في مباراة أخرى`);
                                                     }
 
