@@ -1021,11 +1021,29 @@ export const TournamentDialog = ({ children }: { children?: React.ReactNode }) =
                                                     const currentMatch = activeTournament?.matches.find(m => m.id === editingMatchId);
                                                     const sameRoundMatches = activeTournament?.matches.filter(m => m.id !== editingMatchId && m.round === currentMatch?.round) || [];
 
+                                                    const isPlayerInOtherActiveMatch = (playerName: string) => {
+                                                        if (!playerName.trim()) return false;
+                                                        const name = playerName.trim().toLowerCase();
+
+                                                        return sameRoundMatches.some(m => {
+                                                            const isP1 = m.player1Name?.trim().toLowerCase() === name;
+                                                            const isP2 = m.player2Name?.trim().toLowerCase() === name;
+                                                            if (!isP1 && !isP2) return false;
+
+                                                            // Si le match est terminé et que le joueur a perdu, il n'est plus bloqué (peut rejouer / prendre un BYE)
+                                                            if (m.status === 'completed' && m.winnerName && m.winnerName.trim().toLowerCase() !== name) {
+                                                                return false;
+                                                            }
+
+                                                            return true;
+                                                        });
+                                                    };
+
                                                     if (editPlayer1 && editPlayer2 && editPlayer1.trim().toLowerCase() === editPlayer2.trim().toLowerCase()) {
                                                         error = t('Players must be different', 'Les joueurs doivent être différents', 'يجب أن يكون اللاعبون مختلفين');
-                                                    } else if (editPlayer1 && sameRoundMatches.some(m => m.player1Name?.trim().toLowerCase() === editPlayer1.trim().toLowerCase() || m.player2Name?.trim().toLowerCase() === editPlayer1.trim().toLowerCase())) {
+                                                    } else if (editPlayer1 && isPlayerInOtherActiveMatch(editPlayer1)) {
                                                         error = t(`${editPlayer1} is already in another match`, `${editPlayer1} est déjà dans un autre match`, `${editPlayer1} موجود بالفعل في مباراة أخرى`);
-                                                    } else if (editPlayer2 && sameRoundMatches.some(m => m.player1Name?.trim().toLowerCase() === editPlayer2.trim().toLowerCase() || m.player2Name?.trim().toLowerCase() === editPlayer2.trim().toLowerCase())) {
+                                                    } else if (editPlayer2 && isPlayerInOtherActiveMatch(editPlayer2)) {
                                                         error = t(`${editPlayer2} is already in another match`, `${editPlayer2} est déjà dans un autre match`, `${editPlayer2} موجود بالفعل في مباراة أخرى`);
                                                     }
 
